@@ -4,6 +4,7 @@
 # Termos específicos de cada caso (nomes das partes, testemunhas) vão melhor em:
 #   python degravar.py arquivo.mp4 --vocabulario "Fulano de Tal, Beltrana"
 
+Claude, Claude Code, Cowork, Claude Academy, Claude para Advogados, Anthropic, Opus, Sonnet, Haiku
 Excelência, Meritíssimo, Vossa Excelência, data venia, Ministério Público
 reclamante, reclamada, requerente, requerido, exequente, executado, preposto
 CLT, CPC, CTN, STF, STJ, TST, TRT, CARF
