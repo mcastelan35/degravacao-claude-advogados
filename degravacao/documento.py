@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from .falantes import nome as nome_falante
 from .util import duracao_por_extenso, minutagem
 
 PAUSA_NOVO_PARAGRAFO = 2.0     # segundos de silêncio que abrem novo parágrafo
@@ -16,7 +17,7 @@ MARCA_CLAUDE_FIM = "<!-- CLAUDE:ESTRUTURA:FIM -->"
 
 
 def paragrafos(segmentos: list[dict]) -> list[dict]:
-    """Agrupa segmentos do Whisper em parágrafos legíveis, sem alterar o texto."""
+    """Agrupa frases em parágrafos legíveis, sem alterar o texto. Troca de falante abre parágrafo."""
     saida: list[dict] = []
     atual: dict | None = None
     for s in segmentos:
@@ -24,11 +25,12 @@ def paragrafos(segmentos: list[dict]) -> list[dict]:
             pausa = s["ini"] - atual["fim"]
             tamanho = sum(len(segmentos[i]["txt"]) for i in atual["segs"])
             fim_frase = segmentos[atual["segs"][-1]]["txt"].rstrip().endswith((".", "?", "!", "…"))
-            if pausa >= PAUSA_NOVO_PARAGRAFO or (tamanho >= TAMANHO_PARAGRAFO and fim_frase) or tamanho >= TAMANHO_MAXIMO:
+            troca = s.get("falante") != atual["falante"]
+            if troca or pausa >= PAUSA_NOVO_PARAGRAFO or (tamanho >= TAMANHO_PARAGRAFO and fim_frase) or tamanho >= TAMANHO_MAXIMO:
                 saida.append(atual)
                 atual = None
         if atual is None:
-            atual = {"ini": s["ini"], "fim": s["fim"], "segs": []}
+            atual = {"ini": s["ini"], "fim": s["fim"], "segs": [], "falante": s.get("falante")}
         atual["segs"].append(s["i"])
         atual["fim"] = s["fim"]
     if atual:
@@ -64,6 +66,15 @@ def _link(seg: float) -> str:
     return f"[[{minutagem(seg)}]](player.html#t={int(seg)})"
 
 
+def _rotulo(p: dict, segs: list[dict], dados: dict) -> str:
+    """Rótulo do falante do parágrafo: (?) = atribuição acústica incerta; ✎ = revista."""
+    if not p.get("falante"):
+        return ""
+    incerto = all(segs[i].get("falante_incerto") for i in p["segs"])
+    revisto = any(segs[i].get("falante") != segs[i].get("falante_acustico") for i in p["segs"])
+    return f"**{nome_falante(dados, p['falante'])}**{' (?)' if incerto else ''}{' ✎' if revisto else ''}: "
+
+
 def gerar_markdown(dados: dict, titulo: str) -> str:
     segs = dados["segmentos"]
     pars = paragrafos(segs)
@@ -94,6 +105,9 @@ def gerar_markdown(dados: dict, titulo: str) -> str:
         f"| Modelo | Whisper `{dados['modelo']}` ({dados['dispositivo']}) |",
         f"| Volume | {len(segs)} segmentos · {len(pars)} parágrafos · {palavras} palavras |",
         f"| Trechos para conferência | {len(duvidosos)} |",
+        *([f"| Falantes | {len(dados['falantes'])} identificados pela voz · "
+           f"{sum(1 for x in segs if x.get('falante_incerto'))} frases com falante a conferir |"]
+          if dados.get("falantes") else []),
         f"| Degravado em | {datetime.fromisoformat(dados['gerado_em']).strftime('%d/%m/%Y %H:%M')} |",
         "| Reproduzir | [abrir player com transcrição sincronizada](player.html) |",
         "",
@@ -109,6 +123,15 @@ def gerar_markdown(dados: dict, titulo: str) -> str:
         MARCA_CLAUDE_FIM,
         "",
     ]
+
+    if dados.get("falantes"):
+        L += ["## Falantes", "",
+              "Separação automática pela voz (aproximada). **(?)** = falante a conferir "
+              "(frase curta ou troca rápida); **✎** = atribuição revista depois da separação automática.", "",
+              "| Rótulo | Identificação | Tempo de fala |", "|---|---|---|"]
+        for rot, info in dados["falantes"].items():
+            L.append(f"| {rot} | {info.get('nome') or '—'} | {minutagem(info['tempo'])} |")
+        L.append("")
 
     L += ["## Índice por minutagem", ""]
     for n, g in enumerate(grupos, 1):
@@ -129,36 +152,43 @@ def gerar_markdown(dados: dict, titulo: str) -> str:
         L += [f'<a id="bloco-{n}"></a>', "", f"### Bloco {n} — {minutagem(g[0]['ini'])} a {minutagem(g[-1]['fim'])}", ""]
         for p in g:
             alerta = " ⚠️" if id(p) in ids_duvidosos else ""
-            L += [f"{_link(p['ini'])}{alerta} {_texto(p, segs)}", ""]
+            L += [f"{_link(p['ini'])}{alerta} {_rotulo(p, segs, dados)}{_texto(p, segs)}", ""]
 
     L += ["---", "", f"_Gerado por degravacao-claude-advogados em {dados['gerado_em'][:10]}._", ""]
     return "\n".join(L)
 
 
-def gerar_srt(segmentos: list[dict]) -> str:
+def _legenda(s: dict, dados: dict) -> str:
+    return f"[{nome_falante(dados, s['falante'])}] {s['txt']}" if s.get("falante") else s["txt"]
+
+
+def gerar_srt(dados: dict) -> str:
     linhas = []
-    for n, s in enumerate(segmentos, 1):
-        linhas += [str(n), f"{minutagem(s['ini'], True, ',')} --> {minutagem(s['fim'], True, ',')}", s["txt"], ""]
+    for n, s in enumerate(dados["segmentos"], 1):
+        linhas += [str(n), f"{minutagem(s['ini'], True, ',')} --> {minutagem(s['fim'], True, ',')}", _legenda(s, dados), ""]
     return "\n".join(linhas)
 
 
-def gerar_vtt(segmentos: list[dict]) -> str:
+def gerar_vtt(dados: dict) -> str:
     linhas = ["WEBVTT", ""]
-    for s in segmentos:
-        linhas += [f"{minutagem(s['ini'], True)} --> {minutagem(s['fim'], True)}", s["txt"], ""]
+    for s in dados["segmentos"]:
+        linhas += [f"{minutagem(s['ini'], True)} --> {minutagem(s['fim'], True)}", _legenda(s, dados), ""]
     return "\n".join(linhas)
 
 
-def gerar_txt(segmentos: list[dict]) -> str:
-    pars = paragrafos(segmentos)
-    return "\n\n".join(_texto(p, segmentos) for p in pars) + "\n"
+def gerar_txt(dados: dict) -> str:
+    segs = dados["segmentos"]
+    pars = paragrafos(segs)
+    return "\n\n".join(
+        (f"{nome_falante(dados, p['falante'])}: " if p.get("falante") else "") + _texto(p, segs) for p in pars
+    ) + "\n"
 
 
 def salvar_tudo(pasta: Path, dados: dict, titulo: str) -> Path:
     slug = dados["slug"]
     md = pasta / f"{slug}.md"
     md.write_text(gerar_markdown(dados, titulo), encoding="utf-8")
-    (pasta / f"{slug}.srt").write_text(gerar_srt(dados["segmentos"]), encoding="utf-8")
-    (pasta / f"{slug}.vtt").write_text(gerar_vtt(dados["segmentos"]), encoding="utf-8")
-    (pasta / f"{slug}.txt").write_text(gerar_txt(dados["segmentos"]), encoding="utf-8")
+    (pasta / f"{slug}.srt").write_text(gerar_srt(dados), encoding="utf-8")
+    (pasta / f"{slug}.vtt").write_text(gerar_vtt(dados), encoding="utf-8")
+    (pasta / f"{slug}.txt").write_text(gerar_txt(dados), encoding="utf-8")
     return md

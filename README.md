@@ -4,6 +4,7 @@ Transforme vídeos e áudios — audiências, depoimentos, reuniões com cliente
 
 - **Entrada:** link do Google Drive (arquivo ou pasta), arquivo no computador ou a pasta `entrada/`.
 - **Transcrição:** Whisper rodando **no seu computador** — o vídeo não é enviado para nenhum serviço.
+- **Falantes:** separação de quem fala pela voz, também local e **sem conta ou chave**, revisada pelo Claude pelo sentido da conversa.
 - **Estrutura:** o Claude lê a degravação e preenche resumo executivo, participantes, tópicos com minutagem, pontos de atenção e notas de revisão — sem tocar no texto integral.
 - **Reprodução:** `player.html` com clique-para-ir, busca, legenda, velocidade e atalhos de teclado.
 
@@ -35,6 +36,8 @@ Abra a pasta do projeto no Claude Code e peça em linguagem natural:
 >
 > Degrava os vídeos da pasta entrada. As partes são Maria Souza e Construtora Alfa.
 >
+> Degrava essa audiência separando os falantes: são 3 pessoas (juiz, advogada e testemunha).
+>
 > Estrutura a degravação audiencia-03-05
 >
 > Gera a versão com falantes da audiencia-03-05
@@ -57,6 +60,9 @@ python degravar.py assistir                 # abre o player da última degravaç
 python degravar.py assistir audiencia --em 754
 python degravar.py listar                   # todas as degravações e se já foram estruturadas
 python degravar.py regerar <nome>           # refaz .md e player após corrigir o transcricao.json
+python degravar.py falantes <nome> --separar --num-falantes 3   # separa falantes de degravação já feita
+python degravar.py falantes <nome> --listar                     # frases com o falante atribuído
+python degravar.py falantes <nome> --atribuir 12=F2 --nomear F1="Juiz(a)"
 ```
 
 Opções úteis de `transcrever`:
@@ -65,6 +71,8 @@ Opções úteis de `transcrever`:
 |---|---|
 | `--modelo turbo` | várias vezes mais rápido que o padrão, precisão um pouco menor |
 | `--vocabulario "Fulano, Beltrana, Umuarama"` | melhora a grafia de nomes das partes e termos do caso |
+| `--num-falantes 3` | separa quem fala, sabendo quantas pessoas são (mais confiável) |
+| `--falantes` | separa quem fala sem informar quantas pessoas são |
 | `--idioma ""` | detecta o idioma automaticamente (padrão: português) |
 | `--refazer` | degrava de novo algo já processado |
 | `--copiar-video` | copia o arquivo local para a pasta de saída (pasta autocontida) |
@@ -86,7 +94,7 @@ Cada mídia gera `saida/<nome>/`:
 | `<nome>.md` | ficha técnica, resumo/estrutura (preenchidos pelo Claude), índice por minutagem, trechos para conferência e **transcrição integral** com minutagem clicável |
 | `player.html` | vídeo + transcrição sincronizada; abre com dois cliques, sem internet |
 | `transcricao.json` | fonte de verdade: frases, tempos, confiança por palavra |
-| `<nome>.txt` | texto corrido, para colar em peças |
+| `<nome>.txt` | texto corrido, para colar em peças (com o nome de quem fala, se houver separação) |
 | `<nome>.srt` / `.vtt` | legendas (VLC, YouTube, editores de vídeo) |
 | o vídeo | quando veio do Drive ou da pasta `entrada/` |
 
@@ -98,7 +106,7 @@ Cada mídia gera `saida/<nome>/`:
 | `turbo` | muito próxima | várias vezes mais rápida | ~1,6 GB |
 | `medium` / `small` | menor | rápidas | 1,5 GB / 0,5 GB |
 
-Com placa de vídeo NVIDIA (CUDA), a transcrição é muitas vezes mais rápida; sem ela, roda em CPU automaticamente.
+Com placa de vídeo NVIDIA (CUDA), a transcrição é muitas vezes mais rápida; sem ela, roda em CPU automaticamente. Referência: numa máquina de 4 núcleos sem placa de vídeo, o `large-v3` levou cerca de 2x a duração da gravação (9 min de audiência em ~18 min).
 
 Para melhorar o resultado:
 
@@ -106,19 +114,35 @@ Para melhorar o resultado:
 - Trechos com baixa confiança aparecem com ⚠️ no `.md` e com sublinhado ondulado no player — confira-os na mídia.
 - Corrija erros editando o `txt` do trecho em `transcricao.json` e rodando `regerar` (ou peça ao Claude).
 
-## 7. Limitações — leia antes de usar em processo
+## 7. Separação de falantes
+
+Com `--falantes` ou `--num-falantes N`, cada frase recebe um rótulo (F1, F2…) definido pela **voz**. A separação roda no seu computador, com modelos abertos baixados do GitHub no primeiro uso (~33 MB: segmentação pyannote 3.0, licença MIT, e WeSpeaker, licença Apache 2.0). **Não exige conta no Hugging Face nem chave de API.**
+
+Em seguida o Claude revisa pelo **sentido**: corrige perguntas atribuídas a quem responde (e vice-versa), separa quem a acústica juntou e dá nome a cada falante. Toda atribuição revista fica marcada com ✎, e a separação original continua guardada no `transcricao.json`.
+
+Resultado medido numa audiência real por videoconferência (9 min, áudio comprimido, 3 participantes), comparando com um gabarito de quem fala montado pela leitura do conteúdo:
+
+| | Acerto por frase |
+|---|---|
+| Separação pela voz, geral | ~78% |
+| Frases sem marcação | ~86% |
+| Frases marcadas com **(?)** (curtas, trocas rápidas) | ~50% |
+
+Na prática: a voz acerta bem as falas longas, erra nas respostas curtas ("Sim", "Também") e em sequências rápidas de pergunta e resposta, e pode juntar quem fala pouco (como o juiz) com outra pessoa. Por isso a revisão do Claude é parte do fluxo e as marcas **(?)** devem ser conferidas ouvindo no player. A separação levou ~1,2 min para os 9 min de áudio.
+
+## 8. Limitações — leia antes de usar em processo
 
 - **Transcrição automática é apoio, não prova.** Para citação em peça ou juntada aos autos, confira os trechos na mídia original.
-- **Não há separação automática de vozes.** A identificação de falantes é feita pelo Claude a partir do contexto e vem sempre marcada como inferência.
+- **Falantes são atribuição aproximada**, mesmo depois da revisão do Claude, que não ouve o áudio: confira as marcas (?) e ✎ antes de atribuir uma fala a alguém em peça.
 - Música de fundo, vozes sobrepostas e áudio de baixa qualidade reduzem a precisão.
 
-## 8. Privacidade (LGPD)
+## 9. Privacidade (LGPD)
 
-- O vídeo e o áudio são processados **somente no seu computador**.
+- O vídeo e o áudio são processados **somente no seu computador** — transcrição e separação de falantes.
 - Quando você pede ao Claude para estruturar, apenas o **texto** da degravação é lido pelo Claude, nas condições da sua conta.
 - `entrada/` e `saida/` estão no `.gitignore`: suas gravações nunca vão para o GitHub, mesmo que você faça um fork.
 
-## 9. Problemas comuns
+## 10. Problemas comuns
 
 | Sintoma | Solução |
 |---|---|
@@ -127,3 +151,4 @@ Para melhorar o resultado:
 | Player não toca o vídeo | formato não suportado pelo navegador: instale o ffmpeg e rode com `--refazer`, ou selecione o arquivo no aviso do próprio player |
 | Muito lento | use `--modelo turbo`; feche outros programas pesados |
 | Nomes escritos errado | `--vocabulario "Nome Completo, Outro Nome"` |
+| Falantes trocados | informe `--num-falantes`; peça ao Claude a revisão de falantes; corrija com `falantes --atribuir` |

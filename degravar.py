@@ -6,6 +6,7 @@ Uso rápido:
     python degravar.py "https://drive.google.com/file/d/…/view"
     python degravar.py "C:\\Audiencias\\audiencia.mp4"
     python degravar.py                              # processa tudo que estiver em entrada/
+    python degravar.py audiencia.mp4 --num-falantes 3   # também separa quem fala
     python degravar.py transcrever --monitorar      # vigia entrada/ e degrava o que chegar
     python degravar.py assistir                     # abre o player da última degravação
     python degravar.py listar
@@ -66,6 +67,7 @@ ENTRADA = RAIZ / "entrada"
 SAIDA = RAIZ / "saida"
 DOWNLOADS = SAIDA / ".baixando"
 VOCABULARIO = RAIZ / "config" / "vocabulario.txt"
+MODELOS_FALANTES = RAIZ / "modelos"
 
 # Formatos que o navegador não reproduz: convertidos para o player se houver ffmpeg.
 NAO_REPRODUZIVEIS = {".mkv", ".avi", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp", ".ts", ".wma", ".amr"}
@@ -150,6 +152,84 @@ def regravar_documentos(pasta: Path, dados: dict) -> Path:
     return md
 
 
+# ---------------------------------------------------------------- falantes
+
+def separar_falantes(midia: Path, dados: dict, num: int | None) -> None:
+    from degravacao import falantes
+    try:
+        turnos = falantes.diarizar(midia, MODELOS_FALANTES, num)
+    except Exception as e:  # noqa: BLE001 — a degravação continua sem falantes
+        print(f"  ⚠ não foi possível separar os falantes ({e}); seguindo sem essa etapa.")
+        return
+    dados["falantes"] = falantes.atribuir(dados["segmentos"], turnos)
+    dados["num_falantes_informado"] = num
+
+
+def _intervalo(expr: str, total: int) -> range:
+    a, _, b = expr.partition("-")
+    ini, fim = int(a), int(b or a)
+    if not (0 <= ini <= fim < total):
+        raise ValueError(f"frase fora do intervalo 0–{total - 1}: {expr}")
+    return range(ini, fim + 1)
+
+
+def cmd_falantes(args) -> int:
+    from degravacao import falantes
+
+    pasta = localizar(args.nome)
+    if not pasta:
+        print("Degravação não encontrada. Use: python degravar.py listar")
+        return 1
+    arq = pasta / "transcricao.json"
+    dados = json.loads(arq.read_text(encoding="utf-8"))
+    segs = dados["segmentos"]
+    mudou = False
+
+    if args.separar or args.num_falantes:
+        separar_falantes(Path(dados["caminho_midia"]), dados, args.num_falantes)
+        mudou = bool(dados.get("falantes"))
+    if not dados.get("falantes"):
+        print("Esta degravação não tem falantes separados. Use: python degravar.py falantes "
+              f"{pasta.name} --separar [--num-falantes N]")
+        return 1
+
+    for item in args.atribuir or []:
+        alvo, _, rot = item.partition("=")
+        rot = rot.strip().upper()
+        if not rot.startswith("F") or not rot[1:].isdigit():
+            print(f"✗ rótulo inválido em '{item}' (use F1, F2…)")
+            return 1
+        for i in _intervalo(alvo.strip(), len(segs)):
+            segs[i]["falante"] = rot
+            segs[i]["falante_incerto"] = False  # conferido
+        mudou = True
+    if args.atribuir:
+        dados["falantes"] = falantes.resumo(segs, dados["falantes"])
+    for item in args.nomear or []:
+        rot, _, nome = item.partition("=")
+        rot = rot.strip().upper()
+        if rot not in dados["falantes"]:
+            print(f"✗ {rot} não existe. Falantes: {', '.join(dados['falantes'])}")
+            return 1
+        dados["falantes"][rot]["nome"] = nome.strip() or None
+        mudou = True
+
+    if mudou:
+        arq.write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
+        regravar_documentos(pasta, dados)
+        print("✓ falantes atualizados; .md, legendas e player regerados.")
+
+    print("\nFalantes:")
+    for rot, info in dados["falantes"].items():
+        print(f"  {rot}  {info.get('nome') or '(sem nome)':<30} {minutagem(info['tempo'])} de fala")
+    if args.listar:
+        print("\nFrases (índice · minutagem · falante · texto; '?' = a conferir, '✎' = revista):")
+        for x in segs:
+            marca = ("?" if x.get("falante_incerto") else " ") + ("✎" if x.get("falante") != x.get("falante_acustico") else " ")
+            print(f"  {x['i']:>4} {minutagem(x['ini'])} {x.get('falante', '--'):<3}{marca} {x['txt']}")
+    return 0
+
+
 # ---------------------------------------------------------------- transcrição
 
 def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: dict[str, Path]) -> Path:
@@ -171,6 +251,9 @@ def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: 
         print(f"\n  ⚠ falha na GPU ({e}); repetindo na CPU.")
         modelo_ref["modelo"] = transcricao.carregar_modelo(args.modelo, "cpu")
         dados = transcricao.transcrever(modelo_ref["modelo"], midia.caminho, args.idioma, vocab)
+
+    if args.falantes or args.num_falantes:
+        separar_falantes(midia.caminho, dados, args.num_falantes)
 
     pasta.mkdir(parents=True, exist_ok=True)
     # Destino final da mídia; mover/copiar só acontece depois que tudo foi gravado.
@@ -202,9 +285,13 @@ def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: 
         (shutil.move if midia.mover else shutil.copy2)(str(midia.caminho), str(arquivo))
     mapa[chave] = pasta
 
-    duvidas = sum(1 for s in dados["segmentos"] if s["baixa_confianca"])
+    pars = documento.paragrafos(dados["segmentos"])
+    duvidas = sum(1 for p in pars if any(dados["segmentos"][i]["baixa_confianca"] for i in p["segs"]))
     print(f"  ✓ {minutagem(dados['duracao'])} degravados em {dados['tempo_processamento'] / 60:.1f} min "
-          f"· {len(dados['segmentos'])} segmentos · {duvidas} para conferência")
+          f"· {len(pars)} parágrafos · {duvidas} trechos para conferência")
+    if dados.get("falantes"):
+        incertas = sum(1 for x in dados["segmentos"] if x.get("falante_incerto"))
+        print(f"  ✓ {len(dados['falantes'])} falantes · {incertas} frases com falante a conferir")
     print(f"  ✓ documento: {md.relative_to(RAIZ)}")
     print(f"  ✓ player:    {(pasta / 'player.html').relative_to(RAIZ)}")
     return pasta
@@ -334,7 +421,7 @@ def _baixar_modelo(nome: str) -> int:
 
 # ---------------------------------------------------------------- argparse
 
-COMANDOS = {"instalar", "transcrever", "assistir", "listar", "regerar", "_baixar_modelo"}
+COMANDOS = {"instalar", "transcrever", "assistir", "listar", "regerar", "falantes", "_baixar_modelo"}
 
 
 def main(argv: list[str]) -> int:
@@ -357,6 +444,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--refazer", action="store_true", help="degrava de novo mesmo se já processado")
     p.add_argument("--copiar-video", action="store_true", help="copia o arquivo local para a pasta de saída")
     p.add_argument("--sem-converter", action="store_true", help="não converte formatos que o navegador não abre")
+    p.add_argument("--falantes", action="store_true", help="separa quem fala, pela voz (aproximado)")
+    p.add_argument("--num-falantes", type=int, metavar="N", help="número de pessoas que falam (implica --falantes)")
     p.add_argument("--monitorar", action="store_true", help="vigia entrada/ continuamente")
     p.add_argument("--intervalo", type=int, default=20, help="segundos entre verificações no modo monitor")
 
@@ -365,6 +454,14 @@ def main(argv: list[str]) -> int:
     p.add_argument("--em", type=int, help="abre já na minutagem (segundos)")
 
     sub.add_parser("listar", help="lista as degravações feitas")
+
+    p = sub.add_parser("falantes", help="separa, nomeia e corrige falantes de uma degravação")
+    p.add_argument("nome", nargs="?", help="nome/slug da degravação (padrão: a mais recente)")
+    p.add_argument("--separar", action="store_true", help="roda a separação de falantes nesta degravação")
+    p.add_argument("--num-falantes", type=int, metavar="N")
+    p.add_argument("--nomear", action="append", metavar='F1="Juiz(a)"', help="dá nome a um falante")
+    p.add_argument("--atribuir", action="append", metavar="12=F2", help="corrige o falante de frase(s): 12=F2 ou 40-43=F1")
+    p.add_argument("--listar", action="store_true", help="mostra todas as frases com o falante atribuído")
 
     p = sub.add_parser("regerar", help="regera .md, legendas e player a partir do transcricao.json")
     p.add_argument("nome", nargs="?")
@@ -375,7 +472,7 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
     if args.comando == "instalar":
         return instalar(args.baixar_modelo)
-    if args.comando in {"transcrever", "_baixar_modelo"}:
+    if args.comando in {"transcrever", "falantes", "_baixar_modelo"}:
         try:
             import faster_whisper  # noqa: F401
         except ImportError:
@@ -384,7 +481,7 @@ def main(argv: list[str]) -> int:
     if args.comando == "_baixar_modelo":
         return _baixar_modelo(args.nome)
     return {"transcrever": cmd_transcrever, "assistir": cmd_assistir,
-            "listar": cmd_listar, "regerar": cmd_regerar}[args.comando](args)
+            "listar": cmd_listar, "regerar": cmd_regerar, "falantes": cmd_falantes}[args.comando](args)
 
 
 if __name__ == "__main__":

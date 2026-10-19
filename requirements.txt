@@ -4,3 +4,5 @@ faster-whisper>=1.1,<2
 av>=11,<17
 # Download de arquivos e pastas compartilhados no Google Drive.
 gdown>=5.2
+# Separação de falantes (diarização) local, sem conta nem chave; modelos baixados do GitHub.
+sherpa-onnx>=1.12,<2

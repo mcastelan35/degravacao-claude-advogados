@@ -21,7 +21,10 @@ A transcrição roda **localmente** (Whisper via `degravar.py`). O seu papel, Cl
 | Nada / "os vídeos da pasta" | `python degravar.py` (processa `entrada/`) |
 | "Fique vigiando a pasta" | `python degravar.py transcrever --monitorar` |
 
-Sempre use aspas no caminho/link. Antes de rodar, **pergunte uma única vez** (sem bloquear se o usuário não souber) se há nomes próprios relevantes — partes, testemunhas, empresas, cidades — e passe-os em `--vocabulario "Nome 1, Nome 2"`. Isso melhora muito a grafia de nomes.
+Sempre use aspas no caminho/link. Antes de rodar, **pergunte uma única vez**, em uma só mensagem e sem bloquear se o usuário não souber:
+
+- se há nomes próprios relevantes — partes, testemunhas, empresas, cidades → `--vocabulario "Nome 1, Nome 2"` (melhora muito a grafia);
+- em audiências, reuniões e depoimentos: quantas pessoas falam → `--num-falantes N` (separa quem fala; se não souber o número, use `--falantes`).
 
 Modelo: o padrão é `large-v3` (mais preciso). Para gravações longas em computador sem placa de vídeo NVIDIA, avise que o processamento pode levar tempo da ordem da duração da gravação (depende da máquina) e ofereça `--modelo turbo` (bem mais rápido, precisão ligeiramente menor). Não prometa tempos exatos.
 
@@ -47,7 +50,7 @@ Texto corrido, objetivo, 1 a 3 parágrafos: do que se trata, quem participa, o q
 ## Participantes
 | Falante | Papel provável | Base da inferência |
 |---|---|---|
-| Falante 1 | Juiz(a) | Abre a audiência e concede a palavra (00:00:02) |
+| F1 — Juiz(a) | Conduz a audiência | Abre a audiência e concede a palavra (00:00:02) |
 
 ## Estrutura de tópicos
 - [[00:00:00]](player.html#t=0) **Abertura** — breve descrição
@@ -64,7 +67,7 @@ Regras inegociáveis:
 
 1. **Nunca altere a seção "Transcrição integral"** ao estruturar. Ela é a degravação literal.
 2. **Nada sem lastro.** Todo ponto de atenção e todo tópico tem minutagem real retirada da transcrição. Se algo não foi dito, não entra.
-3. **Inferência declarada.** Falantes e papéis são inferidos pelo contexto (o Whisper não separa vozes): diga isso e mostre a base. Se não der para inferir, use "Falante não identificado".
+3. **Inferência declarada.** Papéis e nomes dos falantes são inferidos (pela voz e pelo contexto): diga isso e mostre a base. Se não der para inferir, use "Falante não identificado".
 4. **Possíveis erros de transcrição vão para "Notas de revisão"**, nunca corrigidos silenciosamente. Considere especialmente os trechos marcados com ⚠️.
 5. O link de minutagem segue o formato `[[HH:MM:SS]](player.html#t=SEGUNDOS)`, com segundos inteiros.
 
@@ -78,9 +81,22 @@ A fonte de verdade é `transcricao.json`. Para corrigir um trecho que o usuário
 
 Nunca edite a transcrição integral direto no `.md`: seria sobrescrita no próximo `regerar` e ficaria divergente do player.
 
-## 6. Versão com falantes (opcional, sob pedido)
+## 6. Falantes (separação pela voz + revisão do Claude)
 
-Se o usuário pedir a degravação "com falantes" (formato de ata/termo de audiência), gere um arquivo **separado** `saida/<slug>/<slug>-falantes.md`, com cada fala precedida do rótulo inferido (`**JUIZ(A):**`, `**ADVOGADO(A) DO RECLAMANTE:**` …) e a minutagem, reproduzindo o texto literal da transcrição. No topo, deixe claro que a atribuição de falantes é inferida e precisa de conferência. O arquivo original não é alterado.
+A separação automática (`--falantes` / `--num-falantes N`) roda localmente, sem conta nem chave, e rotula cada frase como F1, F2… Ela é **aproximada**. No teste de referência (audiência por videoconferência, 9 min, áudio comprimido) acertou cerca de 78% das frases: 86% das não marcadas e só metade das marcadas com **(?)** (frases curtas, trocas rápidas). Em sequências rápidas de pergunta e resposta, a acústica pode colar vários turnos num só falante, e vozes de quem fala pouco (ex.: juiz) podem se fundir com outra.
+
+Para degravação já existente sem falantes: `python degravar.py falantes <slug> --separar [--num-falantes N]`.
+
+**Depois de separar, faça sempre a revisão** (antes de estruturar):
+
+1. `python degravar.py falantes <slug> --listar` — mostra cada frase com índice, minutagem, falante e marcas (`?` a conferir, `✎` revista).
+2. Leia **todas** as frases e identifique os papéis (quem conduz, quem pergunta, quem responde).
+3. Corrija **apenas** atribuições que o sentido torna inequívocas: pergunta atribuída a quem está respondendo, resposta atribuída a quem pergunta, sequência de turnos colada num só falante. Use `--atribuir 108=F1 --atribuir 110-111=F1` (vários na mesma chamada). Para uma pessoa que a acústica fundiu com outra (ex.: juiz), crie um rótulo novo: `--atribuir 0=F3`.
+4. Na dúvida, **não corrija**: o "(?)" fica para o usuário conferir ouvindo no player.
+5. Nomeie: `--nomear F1="Juiz(a)" --nomear F2="Preposto — Fulano"`. Use nomes só quando ditos na gravação ou informados pelo usuário; senão, o papel.
+6. Na estruturação (passo 4), "Participantes" usa esses rótulos, e "Notas de revisão" informa quantas atribuições foram revistas pelo sentido e quais trechos seguem incertos.
+
+A separação acústica original fica guardada em `falante_acustico` no `transcricao.json`; as frases revistas aparecem com ✎ no `.md` e no player, e o `.txt` e as legendas já saem com o nome de quem fala (formato de ata).
 
 ## 7. Reproduzir
 

@@ -28,6 +28,8 @@ def _dispositivo(pedido: str) -> tuple[str, str]:
 
 
 def carregar_modelo(nome: str, dispositivo: str = "auto"):
+    # Os modelos são públicos: o aviso do Hugging Face sobre "requisições sem token" só confunde.
+    os.environ.setdefault("HF_HUB_VERBOSITY", "error")
     from faster_whisper import WhisperModel
 
     nome = MODELOS_ALIAS.get(nome, nome)

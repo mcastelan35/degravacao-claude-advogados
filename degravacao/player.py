@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .documento import paragrafos
+from .falantes import nome as nome_falante
 from .util import minutagem
 
 MODELO = r"""<!doctype html>
@@ -55,6 +56,10 @@ MODELO = r"""<!doctype html>
   .seg.atual { background: var(--destaque); }
   .seg.baixa { text-decoration: underline wavy var(--alerta); text-underline-offset: 3px; }
   mark { background: #ffd54f; color: #000; }
+  .falante { font-size: 13px; font-weight: 600; margin-right: 6px; padding: 1px 8px; border-radius: 99px;
+             background: color-mix(in srgb, var(--cor) 18%, transparent); color: var(--cor); }
+  .falante.incerto::after { content: " ?"; }
+  .falante.revisto::after { content: " ✎"; }
   .info { font-size: 13px; color: var(--suave); }
 </style>
 </head>
@@ -104,6 +109,7 @@ const legenda = document.getElementById("legenda");
 const seguir = document.getElementById("seguir");
 const segs = DADOS.segmentos;
 const elems = [];
+const CORES = ["#2f6fdf", "#c2410c", "#15803d", "#9333ea", "#b45309", "#0e7490", "#be123c", "#4d7c0f"];
 
 function hms(t) {
   t = Math.max(0, Math.floor(t));
@@ -121,6 +127,15 @@ for (const p of DADOS.paragrafos) {
   b.className = "ts"; b.textContent = "[" + hms(p.ini) + "]";
   b.onclick = () => ir(p.ini);
   div.appendChild(b);
+  if (p.f) {
+    const f = document.createElement("span");
+    f.className = "falante" + (p.inc ? " incerto" : "") + (p.rev ? " revisto" : "");
+    f.style.setProperty("--cor", CORES[(p.r - 1) % CORES.length]);
+    f.textContent = p.f;
+    f.title = p.rev ? "Atribuição revista após a separação automática"
+      : p.inc ? "Falante a conferir (frase curta ou troca rápida)" : "Separação automática pela voz";
+    div.appendChild(f);
+  }
   for (const i of p.segs) {
     const s = segs[i];
     const span = document.createElement("span");
@@ -147,7 +162,7 @@ video.addEventListener("timeupdate", () => {
   atual = i;
   if (i >= 0) {
     elems[i].classList.add("atual");
-    legenda.textContent = video.currentTime <= segs[i].fim + 1 ? segs[i].t : "";
+    legenda.textContent = video.currentTime <= segs[i].fim + 1 ? (segs[i].f ? segs[i].f + ": " : "") + segs[i].t : "";
     if (seguir.checked) elems[i].scrollIntoView({ block: "center", behavior: "smooth" });
   }
 });
@@ -206,8 +221,14 @@ if (m) video.addEventListener("loadedmetadata", () => { video.currentTime = Numb
 def gerar_player(pasta: Path, dados: dict, titulo: str, src: str) -> Path:
     segs = dados["segmentos"]
     compacto = {
-        "segmentos": [{"ini": s["ini"], "fim": s["fim"], "t": s["txt"], "b": s["baixa_confianca"]} for s in segs],
-        "paragrafos": [{"ini": p["ini"], "segs": p["segs"]} for p in paragrafos(segs)],
+        "segmentos": [{"ini": s["ini"], "fim": s["fim"], "t": s["txt"], "b": s["baixa_confianca"],
+                       "f": nome_falante(dados, s.get("falante"))} for s in segs],
+        "paragrafos": [{"ini": p["ini"], "segs": p["segs"],
+                        "f": nome_falante(dados, p.get("falante")),
+                        "r": int(p["falante"][1:]) if p.get("falante") else 0,
+                        "inc": all(segs[i].get("falante_incerto") for i in p["segs"]),
+                        "rev": any(segs[i].get("falante") != segs[i].get("falante_acustico") for i in p["segs"])}
+                       for p in paragrafos(segs)],
     }
     json_seguro = json.dumps(compacto, ensure_ascii=False).replace("</", "<\\/")
     esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")  # noqa: E731

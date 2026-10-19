@@ -1,5 +1,6 @@
 # Ambiente
 .venv/
+modelos/
 __pycache__/
 *.pyc
 
