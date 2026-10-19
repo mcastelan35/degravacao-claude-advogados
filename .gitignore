@@ -1,6 +1,7 @@
 # Ambiente
 .venv/
 modelos/
+config/preferencias.json
 __pycache__/
 *.pyc
 

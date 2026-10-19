@@ -1,0 +1,4 @@
+# Arquivos .bat precisam de CRLF; ficam gravados assim no repositório (inclusive no ZIP do GitHub).
+*.bat -text
+*.command text eol=lf
+*.py text eol=lf

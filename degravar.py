@@ -3,9 +3,10 @@
 
 Uso rápido:
     python degravar.py instalar                     # 1ª vez: cria .venv e instala dependências
+    python degravar.py configurar                   # escolhe (numa janela) a pasta dos vídeos
     python degravar.py "https://drive.google.com/file/d/…/view"
     python degravar.py "C:\\Audiencias\\audiencia.mp4"
-    python degravar.py                              # processa tudo que estiver em entrada/
+    python degravar.py                              # degrava o que houver de novo na pasta escolhida
     python degravar.py audiencia.mp4 --num-falantes 3   # também separa quem fala
     python degravar.py transcrever --monitorar      # vigia entrada/ e degrava o que chegar
     python degravar.py assistir                     # abre o player da última degravação
@@ -36,6 +37,10 @@ def _dentro_da_venv() -> bool:
 
 
 def instalar(baixar_modelo: str | None) -> int:
+    if not (3, 11) <= sys.version_info[:2] <= (3, 14):
+        print(f"✗ Este Python é o {sys.version.split()[0]}; a ferramenta precisa do Python 3.11 a 3.14 "
+              "(recomendado 3.12). Instale em https://www.python.org/downloads/")
+        return 1
     if not VENV_PY.exists():
         print(f"• criando ambiente virtual em {VENV} …")
         subprocess.check_call([sys.executable, "-m", "venv", str(VENV)])
@@ -45,12 +50,12 @@ def instalar(baixar_modelo: str | None) -> int:
     if baixar_modelo:
         print(f"• baixando modelo Whisper '{baixar_modelo}' (pode levar alguns minutos)…")
         subprocess.check_call([str(VENV_PY), str(RAIZ / "degravar.py"), "_baixar_modelo", baixar_modelo])
-    print("\n✓ Instalação concluída. Coloque vídeos em entrada/ e rode: python degravar.py")
+    print("\n✓ Instalação concluída. Próximo passo: python degravar.py configurar (escolher a pasta dos vídeos)")
     return 0
 
 
 # Se a .venv existe e não estamos nela, reexecuta o script com o Python da .venv.
-if __name__ == "__main__" and VENV_PY.exists() and not _dentro_da_venv() and "instalar" not in sys.argv[1:2]:
+if __name__ == "__main__" and VENV_PY.exists() and not _dentro_da_venv() and sys.argv[1:2] != ["instalar"]:
     sys.exit(subprocess.call([str(VENV_PY), str(Path(__file__).resolve()), *sys.argv[1:]]))
 
 import argparse  # noqa: E402
@@ -63,17 +68,40 @@ from datetime import datetime  # noqa: E402
 from degravacao import documento, fontes  # noqa: E402
 from degravacao.util import minutagem, slugify, src_relativo  # noqa: E402
 
-ENTRADA = RAIZ / "entrada"
-SAIDA = RAIZ / "saida"
-DOWNLOADS = SAIDA / ".baixando"
 VOCABULARIO = RAIZ / "config" / "vocabulario.txt"
+PREFERENCIAS = RAIZ / "config" / "preferencias.json"
 MODELOS_FALANTES = RAIZ / "modelos"
+ENTRADA_PADRAO = RAIZ / "entrada"
+
+
+def carregar_preferencias() -> dict:
+    try:
+        return json.loads(PREFERENCIAS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+PREFS = carregar_preferencias()
+ENTRADA = Path(PREFS["pasta_entrada"]) if PREFS.get("pasta_entrada") else ENTRADA_PADRAO
+SAIDA = Path(PREFS["pasta_saida"]) if PREFS.get("pasta_saida") else RAIZ / "saida"
+# Só a caixa de entrada interna (entrada/) move os vídeos; numa pasta escolhida pelo usuário
+# os originais nunca são movidos nem alterados — o que já foi degravado é apenas pulado.
+MOVER_DA_ENTRADA = ENTRADA.resolve() == ENTRADA_PADRAO.resolve()
+DOWNLOADS = SAIDA / ".baixando"
 
 # Formatos que o navegador não reproduz: convertidos para o player se houver ffmpeg.
 NAO_REPRODUZIVEIS = {".mkv", ".avi", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp", ".ts", ".wma", ".amr"}
 
 
 # ---------------------------------------------------------------- utilidades
+
+def exibir(caminho: Path) -> str:
+    """Caminho curto para mensagens: relativo ao repositório quando estiver dentro dele."""
+    try:
+        return str(caminho.resolve().relative_to(RAIZ))
+    except ValueError:
+        return str(caminho)
+
 
 def processados() -> dict[str, Path]:
     """Mapa chave-da-fonte → pasta, a partir das degravações já existentes."""
@@ -239,7 +267,7 @@ def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: 
     slug = slugify(titulo)
     pasta = pasta_destino(slug, midia.chave, mapa)
     slug = pasta.name
-    print(f"\n■ {midia.caminho.name}  →  saida/{slug}/")
+    print(f"\n■ {midia.caminho.name}  →  {exibir(pasta)}")
 
     if modelo_ref.get("modelo") is None:
         modelo_ref["modelo"] = transcricao.carregar_modelo(args.modelo, args.dispositivo)
@@ -279,8 +307,9 @@ def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: 
         "vocabulario": vocab,
         "gerado_em": datetime.now().isoformat(timespec="seconds"),
     })
-    (pasta / "transcricao.json").write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
     md = regravar_documentos(pasta, dados)
+    # Gravado por último: é ele que marca a mídia como degravada.
+    (pasta / "transcricao.json").write_text(json.dumps(dados, ensure_ascii=False, indent=1), encoding="utf-8")
     if levar and midia.caminho.resolve() != arquivo.resolve():
         (shutil.move if midia.mover else shutil.copy2)(str(midia.caminho), str(arquivo))
     mapa[chave] = pasta
@@ -292,8 +321,8 @@ def degravar_uma(midia: fontes.Midia, modelo_ref: dict, args, vocab: str, mapa: 
     if dados.get("falantes"):
         incertas = sum(1 for x in dados["segmentos"] if x.get("falante_incerto"))
         print(f"  ✓ {len(dados['falantes'])} falantes · {incertas} frases com falante a conferir")
-    print(f"  ✓ documento: {md.relative_to(RAIZ)}")
-    print(f"  ✓ player:    {(pasta / 'player.html').relative_to(RAIZ)}")
+    print(f"  ✓ documento: {exibir(md)}")
+    print(f"  ✓ player:    {exibir(pasta / 'player.html')}")
     return pasta
 
 
@@ -308,19 +337,21 @@ def cmd_transcrever(args) -> int:
 
     mapa = processados()
     try:
-        midias = fontes.resolver(args.entradas, ENTRADA, DOWNLOADS, set() if args.refazer else set(mapa))
+        midias = fontes.resolver(args.entradas, ENTRADA, DOWNLOADS, set() if args.refazer else set(mapa),
+                                 mover_caixa=MOVER_DA_ENTRADA)
     except fontes.ErroEntrada as e:
         print(f"✗ {e}")
         return 1
     if not midias:
-        print("Nada a degravar. Coloque vídeos/áudios em entrada/ ou informe um link/caminho.")
+        print(f"Nada novo para degravar. Coloque vídeos ou áudios em: {ENTRADA}")
+        print(f"Degravações prontas ficam em: {SAIDA}")
         return 0
 
     print(f"{len(midias)} mídia(s) para degravar · modelo {args.modelo} · idioma {args.idioma or 'automático'}")
-    falhas = 0
+    falhas, feitas = 0, []
     for m in midias:
         try:
-            degravar_uma(m, modelo_ref, args, vocab, mapa)
+            feitas.append(degravar_uma(m, modelo_ref, args, vocab, mapa))
         except KeyboardInterrupt:
             print("\nInterrompido.")
             return 130
@@ -329,31 +360,128 @@ def cmd_transcrever(args) -> int:
             print(f"\n  ✗ falha ao degravar {m.caminho.name}: {e}")
     if DOWNLOADS.exists() and not any(DOWNLOADS.iterdir()):
         DOWNLOADS.rmdir()
+    if args.abrir and feitas:
+        abrir_resultados(feitas)
     return 1 if falhas else 0
+
+
+def abrir_no_sistema(caminho: Path) -> None:
+    if sys.platform.startswith("win"):
+        os.startfile(caminho)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.call(["open", str(caminho)])
+    else:
+        subprocess.call(["xdg-open", str(caminho)])
+
+
+def abrir_resultados(pastas: list[Path]) -> None:
+    """Uma degravação: abre o player. Várias: abre a pasta de resultados."""
+    try:
+        if len(pastas) == 1:
+            webbrowser.open((pastas[0] / "player.html").resolve().as_uri())
+        else:
+            abrir_no_sistema(SAIDA)
+    except Exception as e:  # noqa: BLE001
+        print(f"  (não consegui abrir automaticamente: {e})")
 
 
 def monitorar(args, vocab: str, modelo_ref: dict) -> int:
     print(f"Vigiando {ENTRADA} a cada {args.intervalo}s. Ctrl+C para sair.")
     tamanhos: dict[Path, int] = {}
+    falharam: set[Path] = set()
     try:
         while True:
+            feitos = set(processados())
             for arq in fontes.listar_pasta(ENTRADA):
+                chave = f"arquivo:{arq.resolve()}"
+                if arq in falharam or (not MOVER_DA_ENTRADA and chave in feitos):
+                    continue
                 tam = arq.stat().st_size
                 if tamanhos.get(arq) != tam:  # ainda copiando: espera o tamanho estabilizar
                     tamanhos[arq] = tam
                     continue
-                midia = fontes.Midia(arq, "Arquivo local", f"arquivo:{arq.resolve()}", mover=True)
+                midia = fontes.Midia(arq, "Arquivo local", chave, mover=MOVER_DA_ENTRADA)
                 try:
                     degravar_uma(midia, modelo_ref, args, vocab, processados())
                 except Exception as e:  # noqa: BLE001
-                    print(f"  ✗ falha: {e} — movendo para entrada/_falhas/")
-                    (ENTRADA / "_falhas").mkdir(exist_ok=True)
-                    shutil.move(str(arq), str(ENTRADA / "_falhas" / arq.name))
+                    if MOVER_DA_ENTRADA:
+                        print(f"  ✗ falha: {e} — movendo para entrada/_falhas/")
+                        (ENTRADA / "_falhas").mkdir(exist_ok=True)
+                        shutil.move(str(arq), str(ENTRADA / "_falhas" / arq.name))
+                    else:
+                        print(f"  ✗ falha: {e} — o arquivo fica na pasta e não será tentado de novo nesta sessão.")
+                        falharam.add(arq)
                 tamanhos.pop(arq, None)
             time.sleep(args.intervalo)
     except KeyboardInterrupt:
         print("\nMonitoramento encerrado.")
         return 0
+
+
+# ---------------------------------------------------------------- configuração
+
+def escolher_pasta(titulo: str, inicial: Path) -> Path | None:
+    """Seletor de pastas do sistema; sem interface gráfica, pergunta no terminal."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        raiz = tk.Tk()
+        raiz.withdraw()
+        raiz.attributes("-topmost", True)
+        escolha = filedialog.askdirectory(title=titulo, initialdir=str(inicial), mustexist=True, parent=raiz)
+        raiz.destroy()
+        return Path(escolha) if escolha else None
+    except Exception:  # noqa: BLE001 — sem tkinter ou sem tela
+        if not sys.stdin.isatty():
+            return None
+        resposta = input(f"{titulo}\nCole o caminho da pasta e tecle Enter: ").strip().strip('"')
+        return Path(resposta).expanduser() if resposta else None
+
+
+def cmd_configurar(args) -> int:
+    prefs = carregar_preferencias()
+    if args.mostrar:
+        print(f"Pasta dos vídeos:      {ENTRADA}{'  (padrão)' if MOVER_DA_ENTRADA else ''}")
+        print(f"Pasta das degravações: {SAIDA}")
+        print(f"Modelo:                {prefs.get('modelo', 'large-v3')}")
+        print(f"Separar falantes:      {'sim' if prefs.get('falantes') else 'não'}")
+        return 0
+    if args.padrao:
+        PREFERENCIAS.unlink(missing_ok=True)
+        print("✓ Configuração apagada: voltam a valer as pastas entrada/ e saida/ do repositório.")
+        return 0
+
+    alterou_algo = args.modelo or args.falantes
+    entrada = Path(args.entrada).expanduser() if args.entrada else None
+    if entrada is None and not alterou_algo:
+        print("Escolha, na janela que vai abrir, a pasta onde você vai colocar os vídeos…")
+        entrada = escolher_pasta("Pasta dos vídeos para degravar", Path.home())
+        if entrada is None:
+            print("Nenhuma pasta escolhida. Para informar direto: python degravar.py configurar --entrada \"CAMINHO\"")
+            return 1
+    if entrada is not None:
+        if not entrada.is_dir():
+            print(f"✗ Pasta não encontrada: {entrada}")
+            return 1
+        prefs["pasta_entrada"] = str(entrada.resolve())
+        prefs["pasta_saida"] = str(Path(args.saida).expanduser().resolve() if args.saida
+                                   else entrada.resolve() / "Degravações")
+    elif args.saida:
+        prefs["pasta_saida"] = str(Path(args.saida).expanduser().resolve())
+    if args.modelo:
+        prefs["modelo"] = args.modelo
+    if args.falantes:
+        prefs["falantes"] = args.falantes == "sim"
+
+    PREFERENCIAS.parent.mkdir(exist_ok=True)
+    PREFERENCIAS.write_text(json.dumps(prefs, ensure_ascii=False, indent=1), encoding="utf-8")
+    print("✓ Configuração salva.")
+    if prefs.get("pasta_entrada"):
+        print(f"  Vídeos:      {prefs['pasta_entrada']}  (os originais nunca são movidos)")
+        print(f"  Degravações: {prefs['pasta_saida']}")
+    print(f"  Modelo: {prefs.get('modelo', 'large-v3')} · separar falantes: {'sim' if prefs.get('falantes') else 'não'}")
+    print("\nPróximo passo: coloque vídeos na pasta e rode  python degravar.py  (ou dois cliques em Degravar).")
+    return 0
 
 
 # ---------------------------------------------------------------- outros comandos
@@ -421,7 +549,7 @@ def _baixar_modelo(nome: str) -> int:
 
 # ---------------------------------------------------------------- argparse
 
-COMANDOS = {"instalar", "transcrever", "assistir", "listar", "regerar", "falantes", "_baixar_modelo"}
+COMANDOS = {"instalar", "configurar", "transcrever", "assistir", "listar", "regerar", "falantes", "_baixar_modelo"}
 
 
 def main(argv: list[str]) -> int:
@@ -431,12 +559,20 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="degravar", description="Degravação integral de vídeos/áudios.")
     sub = ap.add_subparsers(dest="comando", required=True)
 
+    p = sub.add_parser("configurar", help="escolhe a pasta dos vídeos e preferências (fica salvo)")
+    p.add_argument("--entrada", metavar="PASTA", help="pasta dos vídeos (sem isso, abre o seletor de pastas)")
+    p.add_argument("--saida", metavar="PASTA", help="onde salvar as degravações (padrão: <pasta dos vídeos>/Degravações)")
+    p.add_argument("--modelo", help="modelo padrão: large-v3 (preciso) ou turbo (rápido)")
+    p.add_argument("--falantes", choices=["sim", "nao"], help="separar falantes por padrão")
+    p.add_argument("--mostrar", action="store_true", help="mostra a configuração atual")
+    p.add_argument("--padrao", action="store_true", help="volta para as pastas entrada/ e saida/ do repositório")
+
     p = sub.add_parser("instalar", help="cria .venv e instala dependências")
     p.add_argument("--baixar-modelo", metavar="MODELO", help="já baixa o modelo (ex.: large-v3, turbo)")
 
     p = sub.add_parser("transcrever", help="degrava links do Drive, arquivos ou pastas (padrão: entrada/)")
     p.add_argument("entradas", nargs="*", help="link do Google Drive, arquivo ou pasta")
-    p.add_argument("--modelo", default=os.environ.get("DEGRAVAR_MODELO", "large-v3"),
+    p.add_argument("--modelo", default=os.environ.get("DEGRAVAR_MODELO", PREFS.get("modelo", "large-v3")),
                    help="large-v3 (padrão, mais preciso) · turbo (bem mais rápido) · medium · small")
     p.add_argument("--idioma", default="pt", help="código do idioma (padrão pt; use '' para detectar)")
     p.add_argument("--dispositivo", default="auto", choices=["auto", "cpu", "cuda"])
@@ -444,9 +580,11 @@ def main(argv: list[str]) -> int:
     p.add_argument("--refazer", action="store_true", help="degrava de novo mesmo se já processado")
     p.add_argument("--copiar-video", action="store_true", help="copia o arquivo local para a pasta de saída")
     p.add_argument("--sem-converter", action="store_true", help="não converte formatos que o navegador não abre")
-    p.add_argument("--falantes", action="store_true", help="separa quem fala, pela voz (aproximado)")
+    p.add_argument("--falantes", action="store_true", default=bool(PREFS.get("falantes")),
+                   help="separa quem fala, pela voz (aproximado)")
     p.add_argument("--num-falantes", type=int, metavar="N", help="número de pessoas que falam (implica --falantes)")
-    p.add_argument("--monitorar", action="store_true", help="vigia entrada/ continuamente")
+    p.add_argument("--monitorar", action="store_true", help="vigia a pasta dos vídeos continuamente")
+    p.add_argument("--abrir", action="store_true", help="ao terminar, abre o player (ou a pasta, se forem vários)")
     p.add_argument("--intervalo", type=int, default=20, help="segundos entre verificações no modo monitor")
 
     p = sub.add_parser("assistir", help="abre o player com transcrição sincronizada")
@@ -481,7 +619,8 @@ def main(argv: list[str]) -> int:
     if args.comando == "_baixar_modelo":
         return _baixar_modelo(args.nome)
     return {"transcrever": cmd_transcrever, "assistir": cmd_assistir,
-            "listar": cmd_listar, "regerar": cmd_regerar, "falantes": cmd_falantes}[args.comando](args)
+            "listar": cmd_listar, "regerar": cmd_regerar, "falantes": cmd_falantes,
+            "configurar": cmd_configurar}[args.comando](args)
 
 
 if __name__ == "__main__":

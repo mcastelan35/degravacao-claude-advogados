@@ -10,8 +10,9 @@ Comandos (todos pelo ponto de entrada único, que se reexecuta na `.venv` automa
 
 ```bash
 python degravar.py instalar                 # 1ª vez
+python degravar.py configurar [--entrada PASTA] [--mostrar]  # pasta dos vídeos (janela do sistema); grava config/preferencias.json
 python degravar.py "<link Drive | arquivo | pasta>" [--modelo turbo] [--vocabulario "Nome, Nome"] [--num-falantes N]
-python degravar.py                          # processa entrada/
+python degravar.py [--abrir]                # degrava o que houver de novo na pasta configurada (ou entrada/)
 python degravar.py transcrever --monitorar  # vigia entrada/
 python degravar.py assistir [slug] [--em SEG]
 python degravar.py listar
@@ -22,6 +23,7 @@ python degravar.py falantes <slug> [--separar] [--listar] [--atribuir 12=F2] [--
 ## Estrutura
 
 - `degravar.py` — CLI.
+- `Degravar.bat` / `Degravar.command` — atalho de dois cliques (instala, configura e degrava); `Configurar.*` reabre a configuração. `.bat` gravado com CRLF (`.gitattributes`), sem acentos.
 - `degravacao/fontes.py` — Drive (gdown), arquivos e pastas.
 - `degravacao/transcricao.py` — faster-whisper; divide segmentos em frases pelos tempos das palavras e marca baixa confiança.
 - `degravacao/falantes.py` — diarização local (sherpa-onnx; modelos do GitHub em `modelos/`, sem conta/chave). Frase recebe o falante majoritário; curtas/ambíguas ficam `falante_incerto`.
@@ -33,5 +35,6 @@ python degravar.py falantes <slug> [--separar] [--listar] [--atribuir 12=F2] [--
 
 - Nunca alterar a transcrição integral ao estruturar; correções só via `transcricao.json` + `regerar`, a pedido do usuário.
 - Revisão de falantes só via `falantes --atribuir` (preserva `falante_acustico` e marca ✎); corrigir apenas o que o sentido torna inequívoco.
-- Nunca commitar conteúdo de `entrada/` ou `saida/` (dados de clientes — LGPD).
+- Nunca commitar conteúdo de `entrada/` ou `saida/` nem `config/preferencias.json` (dados de clientes e caminhos locais — LGPD).
+- Pasta configurada pelo usuário: os originais nunca são movidos; o já degravado é pulado pela chave `arquivo:<caminho>`. Só a `entrada/` interna move os vídeos para a saída.
 - `av<17` está fixado de propósito: o PyAV 17+ quebra o `faster-whisper` 1.2.

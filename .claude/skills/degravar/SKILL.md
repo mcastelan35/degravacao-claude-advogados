@@ -9,8 +9,11 @@ A transcrição roda **localmente** (Whisper via `degravar.py`). O seu papel, Cl
 
 ## 1. Preparar o ambiente (só na primeira vez)
 
-- Se não existir a pasta `.venv/` na raiz do repositório, rode `python degravar.py instalar` (no Windows, se `python` não existir, use `py`). Demora alguns minutos.
+- Se não existir a pasta `.venv/` na raiz do repositório, rode `python degravar.py instalar` (no Windows, se `python` não existir, use `py`). Demora alguns minutos. A ferramenta exige Python 3.11 a 3.14; se o comando recusar a versão, oriente a instalar o 3.12 pelo python.org.
+- Se não existir `config/preferencias.json`, ou se o usuário pedir para "configurar" ou "trocar a pasta", rode `python degravar.py configurar`: abre no computador do usuário a janela do sistema para escolher a pasta dos vídeos. Avise que a janela vai abrir (às vezes fica atrás de outras). Se ela não abrir, pergunte o caminho e use `configurar --entrada "CAMINHO"`. Sugira uma pasta do Google Drive para computador, se o usuário usar o Drive.
+- As degravações ficam em `<pasta dos vídeos>/Degravações/`, e os originais nunca são movidos. `configurar --mostrar` exibe as pastas atuais; `--modelo turbo` e `--falantes sim` mudam os padrões.
 - Não é preciso ativar a venv: `degravar.py` se reexecuta sozinho com o Python da `.venv`.
+- Para usuários sem prática com terminal, lembre que existe o atalho de dois cliques `Degravar.bat` (Windows) / `Degravar.command` (Mac), que faz instalação, configuração e degravação.
 
 ## 2. Identificar a entrada
 
@@ -18,7 +21,7 @@ A transcrição roda **localmente** (Whisper via `degravar.py`). O seu papel, Cl
 |---|---|
 | Link do Google Drive (arquivo ou pasta) | `python degravar.py "<link>"` |
 | Caminho de arquivo ou de pasta | `python degravar.py "<caminho>"` |
-| Nada / "os vídeos da pasta" | `python degravar.py` (processa `entrada/`) |
+| Nada / "os vídeos da pasta" | `python degravar.py --abrir` (degrava o que houver de novo na pasta configurada) |
 | "Fique vigiando a pasta" | `python degravar.py transcrever --monitorar` |
 
 Sempre use aspas no caminho/link. Antes de rodar, **pergunte uma única vez**, em uma só mensagem e sem bloquear se o usuário não souber:
@@ -32,7 +35,7 @@ Se o link do Drive falhar, explique as duas saídas que a própria mensagem de e
 
 ## 3. Rodar a transcrição
 
-Rode o comando **em segundo plano** (transcrições longas passam de 10 minutos) e acompanhe a saída. Ao final, a ferramenta informa a pasta `saida/<slug>/` com:
+Rode o comando **em segundo plano** (transcrições longas passam de 10 minutos) e acompanhe a saída. Ao final, a ferramenta informa a pasta da degravação (`<pasta dos vídeos>/Degravações/<slug>/`, ou `saida/<slug>/` sem configuração) com:
 
 - `<slug>.md` — documento estruturado (ficha técnica, índice, trechos para conferência, transcrição integral com minutagem clicável)
 - `player.html` — vídeo + transcrição sincronizada

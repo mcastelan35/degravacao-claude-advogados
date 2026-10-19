@@ -100,10 +100,12 @@ def listar_pasta(pasta: Path) -> list[Path]:
     )
 
 
-def resolver(entradas: list[str], caixa_entrada: Path, downloads: Path, ja_processados: set[str]) -> list[Midia]:
+def resolver(entradas: list[str], caixa_entrada: Path, downloads: Path, ja_processados: set[str],
+             mover_caixa: bool = True) -> list[Midia]:
     """Transforma os argumentos do usuário em uma lista de mídias a degravar.
 
-    Sem argumentos, processa a pasta `entrada/` (caixa de entrada).
+    Sem argumentos, processa a pasta de entrada. Com `mover_caixa`, os arquivos dela são
+    movidos para a saída depois de degravados; sem, ficam onde estão e são pulados na próxima vez.
     """
     if not entradas:
         entradas = [str(caixa_entrada)]
@@ -118,7 +120,7 @@ def resolver(entradas: list[str], caixa_entrada: Path, downloads: Path, ja_proce
         p = Path(item).expanduser()
         if not p.exists():
             raise ErroEntrada(f"Arquivo ou pasta não encontrado: {p}")
-        mover = p.resolve() == caixa_entrada.resolve() or caixa_entrada.resolve() in p.resolve().parents
+        mover = mover_caixa and (p.resolve() == caixa_entrada.resolve() or caixa_entrada.resolve() in p.resolve().parents)
         arquivos = listar_pasta(p) if p.is_dir() else [p]
         for a in arquivos:
             chave = f"arquivo:{a.resolve()}"

@@ -2,7 +2,7 @@
 
 Transforme vídeos e áudios — audiências, depoimentos, reuniões com clientes, aulas, áudios de WhatsApp — em **degravação integral** com minutagem, organizada em um documento Markdown e acompanhada de um **player** em que você assiste ao vídeo com o texto sincronizado.
 
-- **Entrada:** link do Google Drive (arquivo ou pasta), arquivo no computador ou a pasta `entrada/`.
+- **Entrada:** uma pasta do seu computador que você escolhe uma vez (pode ser a pasta sincronizada do Google Drive), um link do Google Drive ou um arquivo avulso.
 - **Transcrição:** Whisper rodando **no seu computador** — o vídeo não é enviado para nenhum serviço.
 - **Falantes:** separação de quem fala pela voz, também local e **sem conta ou chave**, revisada pelo Claude pelo sentido da conversa.
 - **Estrutura:** o Claude lê a degravação e preenche resumo executivo, participantes, tópicos com minutagem, pontos de atenção e notas de revisão — sem tocar no texto integral.
@@ -12,21 +12,35 @@ Transforme vídeos e áudios — audiências, depoimentos, reuniões com cliente
 
 ## 1. Requisitos
 
-- **Python 3.10 a 3.13** — no Windows, instale pelo [python.org](https://www.python.org/downloads/) marcando *"Add python.exe to PATH"*.
-- **Claude Code** (aba *Code* do app Claude Desktop, ou terminal) para o fluxo conversacional.
+- **Python 3.11 a 3.14** (recomendado 3.12), instalado pelo [python.org](https://www.python.org/downloads/). No Windows, marque *"Add python.exe to PATH"* na instalação. Se faltar, o atalho do Windows oferece instalar sozinho.
+- **Claude Code** (aba *Code* do app Claude Desktop), para o uso conversacional. O uso por dois cliques dispensa.
 - Espaço em disco para o modelo: ~3 GB (`large-v3`) ou ~1,6 GB (`turbo`), baixado uma única vez.
 - *Opcional:* [ffmpeg](https://ffmpeg.org/download.html), apenas para converter formatos que o navegador não reproduz (`.mkv`, `.avi`, `.wmv`…). A transcrição funciona sem ele.
 
-## 2. Instalação
+## 2. Instalação e uso em dois cliques (sem terminal)
+
+1. Nesta página do GitHub, clique em **Code → Download ZIP** e extraia a pasta onde quiser (por exemplo, em Documentos).
+2. Dê dois cliques em **`Degravar.bat`** (Windows) ou **`Degravar.command`** (Mac).
+   - Na primeira vez, ele instala a ferramenta (alguns minutos) e abre uma janela para você **escolher a pasta dos vídeos**.
+   - No Mac, se aparecer o aviso de segurança, clique com o botão direito no arquivo e escolha **Abrir**.
+3. Daí em diante, o uso é sempre o mesmo: **coloque os vídeos na pasta e dê dois cliques em `Degravar`**. Ele degrava só o que ainda não foi degravado e, ao terminar, abre o player.
+
+Os resultados ficam numa subpasta **`Degravações`** dentro da pasta que você escolheu, uma pasta por vídeo. **Os vídeos originais nunca são movidos nem alterados.** Para trocar a pasta, o modelo ou ligar a separação de falantes, use **`Configurar.bat`** / **`Configurar.command`**.
+
+A primeira degravação demora mais, porque baixa o modelo de transcrição (~3 GB), uma única vez.
+
+> **Dica:** escolha como pasta dos vídeos uma pasta do **Google Drive para computador** (ex.: `G:\Meu Drive\Degravações`). Assim você sobe o vídeo pelo celular ou pelo navegador e ele já aparece no computador para ser degravado.
+
+### Instalação pelo terminal (opcional)
 
 ```bash
 git clone https://github.com/mcastelan35/degravacao-claude-advogados.git
 cd degravacao-claude-advogados
 python degravar.py instalar
+python degravar.py configurar          # abre a janela para escolher a pasta dos vídeos
 ```
 
-> No Windows, se `python` não for reconhecido, use `py degravar.py instalar`.
-> Para já deixar o modelo baixado: `python degravar.py instalar --baixar-modelo large-v3`.
+> No Windows, se `python` não for reconhecido, use `py`. Para escolher a pasta sem janela: `python degravar.py configurar --entrada "C:\Gravações"`.
 
 ## 3. Uso com o Claude (recomendado)
 
@@ -44,6 +58,8 @@ Abra a pasta do projeto no Claude Code e peça em linguagem natural:
 >
 > Abre o vídeo da audiência no minuto 12
 
+Na primeira vez, basta pedir **"instala e configura a degravação"**: o Claude instala tudo e abre no seu computador a janela para escolher a pasta dos vídeos.
+
 O Claude segue a skill [`degravar`](.claude/skills/degravar/SKILL.md): instala o que faltar, roda a transcrição, estrutura o documento e abre o player.
 
 ## 4. Uso direto pelo terminal
@@ -53,8 +69,9 @@ python degravar.py "https://drive.google.com/file/d/ID/view"     # arquivo do Dr
 python degravar.py "https://drive.google.com/drive/folders/ID"   # pasta inteira do Drive
 python degravar.py "C:\Gravações\audiencia.mp4"                  # arquivo local
 python degravar.py "C:\Gravações"                                # todos os vídeos de uma pasta
-python degravar.py                                               # tudo que estiver em entrada/
-python degravar.py transcrever --monitorar                       # vigia entrada/ continuamente
+python degravar.py                                               # o que houver de novo na pasta escolhida
+python degravar.py transcrever --monitorar                       # vigia a pasta continuamente
+python degravar.py configurar --mostrar                          # mostra pastas e preferências
 
 python degravar.py assistir                 # abre o player da última degravação
 python degravar.py assistir audiencia --em 754
@@ -81,9 +98,9 @@ Opções úteis de `transcrever`:
 
 O link precisa estar compartilhado como **"Qualquer pessoa com o link"**. Para arquivos sigilosos que não devem ser compartilhados, instale o **Google Drive para computador** e informe o caminho da pasta sincronizada (ex.: `"G:\Meu Drive\Audiências"`) — funciona como pasta local.
 
-### Pasta `entrada/`
+### Pasta dos vídeos
 
-Funciona como caixa de entrada: coloque os vídeos ali e rode `python degravar.py`. Cada arquivo processado é **movido** para a sua pasta em `saida/`, então o que sobra em `entrada/` é o que ainda falta degravar.
+Depois de `configurar`, `python degravar.py` degrava o que houver de novo na pasta escolhida e grava os resultados em `Degravações/`, sem mexer nos originais. Sem configuração, vale a pasta interna `entrada/` do repositório, que funciona como caixa de entrada: cada vídeo degravado é **movido** para `saida/`.
 
 ## 5. O que é gerado
 
@@ -146,7 +163,8 @@ Na prática: a voz acerta bem as falas longas, erra nas respostas curtas ("Sim",
 
 | Sintoma | Solução |
 |---|---|
-| `Dependências ausentes` | rode `python degravar.py instalar` |
+| `Dependências ausentes` | dê dois cliques em `Degravar` ou rode `python degravar.py instalar` |
+| Janela de escolha da pasta não abriu | rode `python degravar.py configurar --entrada "CAMINHO DA PASTA"` |
 | Falha no link do Drive | compartilhe como "Qualquer pessoa com o link" ou use a pasta do Google Drive para computador |
 | Player não toca o vídeo | formato não suportado pelo navegador: instale o ffmpeg e rode com `--refazer`, ou selecione o arquivo no aviso do próprio player |
 | Muito lento | use `--modelo turbo`; feche outros programas pesados |
