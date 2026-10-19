@@ -1,0 +1,11 @@
+# Vocabulário de apoio ao Whisper: termos que costumam ser transcritos errado.
+# Separe por vírgula ou um por linha. Linhas com # são ignoradas.
+# Mantenha a lista curta (até ~40 termos) — o modelo só considera os primeiros ~200 tokens.
+# Termos específicos de cada caso (nomes das partes, testemunhas) vão melhor em:
+#   python degravar.py arquivo.mp4 --vocabulario "Fulano de Tal, Beltrana"
+
+Excelência, Meritíssimo, Vossa Excelência, data venia, Ministério Público
+reclamante, reclamada, requerente, requerido, exequente, executado, preposto
+CLT, CPC, CTN, STF, STJ, TST, TRT, CARF
+ITCMD, ITBI, ICMS, ISS, IRPF, IRPJ, CSLL, PIS, Cofins
+holding, inventário, usucapião, litisconsorte, preclusão, embargos de declaração

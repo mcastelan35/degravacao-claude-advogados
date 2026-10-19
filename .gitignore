@@ -1,0 +1,10 @@
+# Ambiente
+.venv/
+__pycache__/
+*.pyc
+
+# Mídias e degravações dos usuários (podem conter dados sensíveis — LGPD)
+entrada/*
+!entrada/.gitkeep
+saida/*
+!saida/.gitkeep
