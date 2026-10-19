@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import unquote
 
 from .documento import paragrafos
 from .falantes import nome as nome_falante
@@ -27,15 +28,15 @@ MODELO = r"""<!doctype html>
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--fundo); color: var(--texto);
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); display: flex; flex-direction: column;
          font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   header { padding: 14px 20px; border-bottom: 1px solid var(--borda); display: flex;
            gap: 16px; align-items: baseline; flex-wrap: wrap; }
   header h1 { font-size: 18px; margin: 0; }
   header span { color: var(--suave); font-size: 14px; }
-  main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px;
-         padding: 20px; height: calc(100vh - 56px); }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; height: auto; } #transcricao { max-height: 70vh; } }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+         gap: 20px; padding: 20px; }
   .coluna { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
   #legenda { min-height: 3.4em; padding: 10px 14px; background: var(--painel); border: 1px solid var(--borda);
@@ -61,6 +62,21 @@ MODELO = r"""<!doctype html>
   .falante.incerto::after { content: " ?"; }
   .falante.revisto::after { content: " ✎"; }
   .info { font-size: 13px; color: var(--suave); }
+
+  /* Telas estreitas (celular, painel lateral do Claude): vídeo compacto no topo e transcrição rolando abaixo. */
+  @media (max-width: 900px) {
+    header { padding: 8px 14px; gap: 8px; }
+    header h1 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    header span { font-size: 12px; }
+    main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 10px 14px; }
+    .coluna { gap: 8px; }
+    video { max-height: 34vh; }
+    #legenda, .info, .opcional { display: none; }
+    button, select, input[type=search] { font-size: 13px; padding: 4px 8px; }
+    #erro { padding: 8px 10px; font-size: 13px; }
+    #transcricao { padding: 4px 12px; }
+    .par { margin: 8px 0; font-size: 15px; }
+  }
 </style>
 </head>
 <body>
@@ -72,16 +88,16 @@ MODELO = r"""<!doctype html>
   <section class="coluna">
     <video id="video" controls preload="metadata" src="__SRC__"></video>
     <div id="erro">
-      Não foi possível abrir a mídia em <code>__SRC_TEXTO__</code> (arquivo movido ou formato não suportado pelo navegador).
-      Selecione o arquivo manualmente: <input type="file" id="arquivo" accept="video/*,audio/*">
+      Não foi possível abrir <code>__SRC_TEXTO__</code> (arquivo movido ou formato não suportado).
+      Selecione o arquivo: <input type="file" id="arquivo" accept="video/*,audio/*">
     </div>
     <div id="legenda" aria-live="polite"></div>
     <div class="controles">
-      <button data-pular="-10">⟲ 10s</button>
+      <button data-pular="-10" class="opcional">⟲ 10s</button>
       <button data-pular="-5">− 5s</button>
       <button id="play">▶ / ❚❚</button>
       <button data-pular="5">+ 5s</button>
-      <button data-pular="10">10s ⟳</button>
+      <button data-pular="10" class="opcional">10s ⟳</button>
       <label>Velocidade
         <select id="velocidade">
           <option>0.5</option><option>0.75</option><option selected>1</option>
@@ -234,7 +250,7 @@ def gerar_player(pasta: Path, dados: dict, titulo: str, src: str) -> Path:
     esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")  # noqa: E731
     html = (
         MODELO.replace("__TITULO__", esc(titulo))
-        .replace("__SRC_TEXTO__", esc(src))
+        .replace("__SRC_TEXTO__", esc(unquote(src.rsplit("/", 1)[-1])))
         .replace("__SRC__", esc(src))
         .replace("__DURACAO__", minutagem(dados["duracao"]))
         .replace("__PARAGRAFOS__", str(len(compacto["paragrafos"])))
