@@ -107,7 +107,19 @@ Ofereça abrir o player: `python degravar.py assistir <slug>` (ou `--em <segundo
 
 `python degravar.py listar` mostra todas as degravações e se já foram estruturadas.
 
+O painel lateral do Claude Code não toca o vídeo do player local (mostra só a transcrição). Para assistir com o vídeo **dentro do Claude**, use o passo 8.
+
+## 8. Ver dentro do Claude: publicar como artefato (opcional)
+
+Use quando o usuário quiser assistir dentro do Claude ou compartilhar a degravação por link, e a ferramenta de artefatos estiver disponível na sessão.
+
+1. **Privacidade antes de tudo.** Publicar envia a mídia e a transcrição para o claude.ai. O artefato é privado por padrão (só o dono abre até compartilhar), mas sai do computador. Antes de publicar, diga isso ao usuário. Se a gravação envolver cliente, audiência, processo ou dado pessoal, só publique com confirmação expressa e ofereça a alternativa `--sem-video` (publica só a transcrição) ou manter tudo local.
+2. Estruture a degravação antes (passo 4): a aba "Resumo e estrutura" da página vem dessa seção do `.md`.
+3. Rode `python degravar.py artefato <slug> --titulo "<título legível>"`. Ele grava `<pasta da degravação>/artefato/index.html` e a mídia recomprimida em `artefato/midia/` (até 15 MB: vídeo; gravações longas saem só com o áudio; acima disso, só a transcrição) e imprime os dois caminhos.
+4. Publique com a ferramenta de artefatos: `file_path` = o `index.html` impresso; `files` = `{"midia/<nome do arquivo>": "<caminho da mídia impresso>"}`; `icon` = `"video"`; `description` = uma frase sobre a gravação. Para atualizar uma publicação feita antes, passe o `url` dela.
+5. Entregue o link dizendo que é privado e que, para outra pessoa abrir, é preciso compartilhar pelo menu da página.
+
 ## Lembretes ao usuário
 
 - A transcrição automática é ferramenta de apoio: para uso em peça ou juntada aos autos, os trechos citados devem ser conferidos na mídia original.
-- Vídeos e degravações ficam em `entrada/` e `saida/`, que não vão para o Git (podem conter dados pessoais — LGPD).
+- Vídeos e degravações ficam no computador do usuário (pasta configurada, ou `entrada/` e `saida/`, fora do Git) — podem conter dados pessoais (LGPD). Só saem dali se o usuário pedir um artefato (passo 8).

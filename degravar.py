@@ -11,6 +11,7 @@ Uso rápido:
     python degravar.py transcrever --monitorar      # vigia entrada/ e degrava o que chegar
     python degravar.py assistir                     # abre o player da última degravação
     python degravar.py listar
+    python degravar.py artefato <nome>              # prepara página + mídia para publicar no claude.ai
 """
 
 from __future__ import annotations
@@ -143,9 +144,11 @@ def carregar_vocabulario(extra: str | None) -> str:
 def preparar_video_player(midia: Path, pasta: Path, converter: bool) -> Path:
     if midia.suffix.lower() not in NAO_REPRODUZIVEIS or not converter:
         return midia
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        print(f"  ⚠ o navegador não reproduz {midia.suffix}; instale o ffmpeg para conversão automática.")
+    from degravacao.artefato import obter_ffmpeg
+    try:
+        ffmpeg = obter_ffmpeg()
+    except Exception:  # noqa: BLE001
+        print(f"  ⚠ o navegador não reproduz {midia.suffix} e o ffmpeg não foi encontrado.")
         return midia
     eh_audio = midia.suffix.lower() in fontes.EXT_AUDIO
     destino = pasta / (midia.stem + (".m4a" if eh_audio else ".mp4"))
@@ -529,6 +532,36 @@ def cmd_listar(_args) -> int:
     return 0
 
 
+def cmd_artefato(args) -> int:
+    from degravacao import artefato
+
+    pasta = localizar(args.nome)
+    if not pasta:
+        print("Degravação não encontrada. Use: python degravar.py listar")
+        return 1
+    dados = json.loads((pasta / "transcricao.json").read_text(encoding="utf-8"))
+    md = (pasta / f"{dados['slug']}.md").read_text(encoding="utf-8")
+    destino = pasta / "artefato"
+    origem = Path(dados["caminho_midia"])
+    if not args.sem_video and not origem.exists():
+        print(f"  ⚠ mídia original não encontrada ({origem}); a página sai só com a transcrição.")
+    print("  ⚙ preparando a mídia para o limite de 15 MB do artefato…")
+    midia, tipo = artefato.preparar_midia(origem, destino / "midia", dados["duracao"],
+                                          sem_video=args.sem_video or not origem.exists())
+    titulo = args.titulo or dados["titulo"]
+    pagina = destino / "index.html"
+    pagina.write_text(artefato.gerar_pagina(dados, md, titulo, midia, tipo), encoding="utf-8")
+
+    descricao = {"video": "vídeo", "audio": "só áudio (o vídeo não caberia)", "nenhuma": "sem mídia"}[tipo]
+    print(f"✓ Página pronta para publicar ({descricao}).")
+    print(f"  página: {pagina.resolve()}")
+    if midia:
+        print(f"  mídia:  {midia.resolve()}  ({midia.stat().st_size / 1e6:.1f} MB) → publicar como \"midia/{midia.name}\"")
+    if not artefato.secao_estruturada(md):
+        print("  ⚠ a degravação ainda não foi estruturada: a aba de resumo ficará vazia.")
+    return 0
+
+
 def cmd_regerar(args) -> int:
     pasta = localizar(args.nome)
     if not pasta:
@@ -549,7 +582,7 @@ def _baixar_modelo(nome: str) -> int:
 
 # ---------------------------------------------------------------- argparse
 
-COMANDOS = {"instalar", "configurar", "transcrever", "assistir", "listar", "regerar", "falantes", "_baixar_modelo"}
+COMANDOS = {"instalar", "configurar", "transcrever", "artefato", "assistir", "listar", "regerar", "falantes", "_baixar_modelo"}
 
 
 def main(argv: list[str]) -> int:
@@ -593,6 +626,11 @@ def main(argv: list[str]) -> int:
 
     sub.add_parser("listar", help="lista as degravações feitas")
 
+    p = sub.add_parser("artefato", help="prepara página e mídia (até 15 MB) para publicar como artefato no claude.ai")
+    p.add_argument("nome", nargs="?", help="nome/slug da degravação (padrão: a mais recente)")
+    p.add_argument("--titulo", help="título da página (padrão: nome do arquivo)")
+    p.add_argument("--sem-video", action="store_true", help="publica só a transcrição, sem mídia")
+
     p = sub.add_parser("falantes", help="separa, nomeia e corrige falantes de uma degravação")
     p.add_argument("nome", nargs="?", help="nome/slug da degravação (padrão: a mais recente)")
     p.add_argument("--separar", action="store_true", help="roda a separação de falantes nesta degravação")
@@ -610,7 +648,7 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
     if args.comando == "instalar":
         return instalar(args.baixar_modelo)
-    if args.comando in {"transcrever", "falantes", "_baixar_modelo"}:
+    if args.comando in {"transcrever", "falantes", "artefato", "_baixar_modelo"}:
         try:
             import faster_whisper  # noqa: F401
         except ImportError:
@@ -620,7 +658,7 @@ def main(argv: list[str]) -> int:
         return _baixar_modelo(args.nome)
     return {"transcrever": cmd_transcrever, "assistir": cmd_assistir,
             "listar": cmd_listar, "regerar": cmd_regerar, "falantes": cmd_falantes,
-            "configurar": cmd_configurar}[args.comando](args)
+            "configurar": cmd_configurar, "artefato": cmd_artefato}[args.comando](args)
 
 
 if __name__ == "__main__":

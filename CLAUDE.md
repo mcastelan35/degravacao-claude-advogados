@@ -18,6 +18,7 @@ python degravar.py assistir [slug] [--em SEG]
 python degravar.py listar
 python degravar.py regerar <slug>           # refaz .md/legendas/player a partir do transcricao.json
 python degravar.py falantes <slug> [--separar] [--listar] [--atribuir 12=F2] [--nomear F1="Juiz(a)"]
+python degravar.py artefato <slug> [--titulo T] [--sem-video]  # página + mídia (≤15 MB) para publicar como artefato
 ```
 
 ## Estrutura
@@ -29,6 +30,7 @@ python degravar.py falantes <slug> [--separar] [--listar] [--atribuir 12=F2] [--
 - `degravacao/falantes.py` — diarização local (sherpa-onnx; modelos do GitHub em `modelos/`, sem conta/chave). Frase recebe o falante majoritário; curtas/ambíguas ficam `falante_incerto`.
 - `degravacao/documento.py` — `.md`, `.srt`, `.vtt`, `.txt`. A seção entre `<!-- CLAUDE:ESTRUTURA:INICIO/FIM -->` é do Claude e é preservada pelo `regerar`.
 - `degravacao/player.py` — `player.html` autocontido (dados embutidos, sem servidor).
+- `degravacao/artefato.py` — página para artefato do claude.ai: recomprime a mídia para ≤15 MB (vídeo → só áudio → sem mídia) com o ffmpeg do `imageio-ffmpeg` e converte a seção estruturada do `.md` em HTML.
 - `config/vocabulario.txt` — termos jurídicos passados ao Whisper como `hotwords`.
 
 ## Regras
@@ -38,3 +40,4 @@ python degravar.py falantes <slug> [--separar] [--listar] [--atribuir 12=F2] [--
 - Nunca commitar conteúdo de `entrada/` ou `saida/` nem `config/preferencias.json` (dados de clientes e caminhos locais — LGPD).
 - Pasta configurada pelo usuário: os originais nunca são movidos; o já degravado é pulado pela chave `arquivo:<caminho>`. Só a `entrada/` interna move os vídeos para a saída.
 - `av<17` está fixado de propósito: o PyAV 17+ quebra o `faster-whisper` 1.2.
+- Artefato só com aviso de que a mídia e o texto saem do computador; gravação com dados de clientes exige confirmação expressa (alternativa: `--sem-video`).

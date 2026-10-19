@@ -15,7 +15,6 @@ Transforme vídeos e áudios — audiências, depoimentos, reuniões com cliente
 - **Python 3.11 a 3.14** (recomendado 3.12), instalado pelo [python.org](https://www.python.org/downloads/). No Windows, marque *"Add python.exe to PATH"* na instalação. Se faltar, o atalho do Windows oferece instalar sozinho.
 - **Claude Code** (aba *Code* do app Claude Desktop), para o uso conversacional. O uso por dois cliques dispensa.
 - Espaço em disco para o modelo: ~3 GB (`large-v3`) ou ~1,6 GB (`turbo`), baixado uma única vez.
-- *Opcional:* [ffmpeg](https://ffmpeg.org/download.html), apenas para converter formatos que o navegador não reproduz (`.mkv`, `.avi`, `.wmv`…). A transcrição funciona sem ele.
 
 ## 2. Instalação e uso em dois cliques (sem terminal)
 
@@ -147,26 +146,34 @@ Resultado medido numa audiência real por videoconferência (9 min, áudio compr
 
 Na prática: a voz acerta bem as falas longas, erra nas respostas curtas ("Sim", "Também") e em sequências rápidas de pergunta e resposta, e pode juntar quem fala pouco (como o juiz) com outra pessoa. Por isso a revisão do Claude é parte do fluxo e as marcas **(?)** devem ser conferidas ouvindo no player. A separação levou ~1,2 min para os 9 min de áudio.
 
-## 8. Limitações — leia antes de usar em processo
+## 8. Ver dentro do Claude (artefato)
+
+O player local abre no navegador do computador. Para assistir **dentro do Claude** ou mandar o link a alguém, peça ao Claude: **"publica a degravação X como artefato"**. Ele gera uma página com o vídeo, a transcrição sincronizada, a busca, o resumo, os tópicos e a ficha técnica, e publica no claude.ai.
+
+- O artefato aceita arquivos de até 15 MB, então a mídia é recomprimida: vídeos curtos saem com imagem (até cerca de 10 minutos), gravações mais longas só com o áudio e, no limite, só com a transcrição.
+- **Atenção à privacidade:** o artefato é privado por padrão (só você abre até compartilhar pelo menu da página), mas a mídia e o texto **saem do seu computador** e vão para o claude.ai. Use para aulas e conteúdo público; para audiências e reuniões com clientes, prefira o player local ou publique só a transcrição (`--sem-video`).
+- Pelo terminal: `python degravar.py artefato <nome> --titulo "Título"` prepara a página e a mídia; a publicação é feita pelo Claude.
+
+## 9. Limitações — leia antes de usar em processo
 
 - **Transcrição automática é apoio, não prova.** Para citação em peça ou juntada aos autos, confira os trechos na mídia original.
 - **Falantes são atribuição aproximada**, mesmo depois da revisão do Claude, que não ouve o áudio: confira as marcas (?) e ✎ antes de atribuir uma fala a alguém em peça.
 - Música de fundo, vozes sobrepostas e áudio de baixa qualidade reduzem a precisão.
 
-## 9. Privacidade (LGPD)
+## 10. Privacidade (LGPD)
 
-- O vídeo e o áudio são processados **somente no seu computador** — transcrição e separação de falantes.
+- O vídeo e o áudio são processados **somente no seu computador** — transcrição e separação de falantes. Só saem dele se você pedir um artefato (seção 8).
 - Quando você pede ao Claude para estruturar, apenas o **texto** da degravação é lido pelo Claude, nas condições da sua conta.
 - `entrada/` e `saida/` estão no `.gitignore`: suas gravações nunca vão para o GitHub, mesmo que você faça um fork.
 
-## 10. Problemas comuns
+## 11. Problemas comuns
 
 | Sintoma | Solução |
 |---|---|
 | `Dependências ausentes` | dê dois cliques em `Degravar` ou rode `python degravar.py instalar` |
 | Janela de escolha da pasta não abriu | rode `python degravar.py configurar --entrada "CAMINHO DA PASTA"` |
 | Falha no link do Drive | compartilhe como "Qualquer pessoa com o link" ou use a pasta do Google Drive para computador |
-| Player não toca o vídeo | formato não suportado pelo navegador: instale o ffmpeg e rode com `--refazer`, ou selecione o arquivo no aviso do próprio player |
+| Player não toca o vídeo | o vídeo foi movido ou o formato não é suportado: rode de novo com `--refazer` (a ferramenta converte `.mkv`, `.avi`, `.wmv` etc.) ou selecione o arquivo no aviso do próprio player |
 | Muito lento | use `--modelo turbo`; feche outros programas pesados |
 | Nomes escritos errado | `--vocabulario "Nome Completo, Outro Nome"` |
 | Falantes trocados | informe `--num-falantes`; peça ao Claude a revisão de falantes; corrija com `falantes --atribuir` |

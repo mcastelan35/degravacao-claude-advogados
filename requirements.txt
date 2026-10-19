@@ -6,3 +6,5 @@ av>=11,<17
 gdown>=5.2
 # Separação de falantes (diarização) local, sem conta nem chave; modelos baixados do GitHub.
 sherpa-onnx>=1.12,<2
+# ffmpeg embutido (Windows, Mac e Linux): recomprime a mídia do artefato e converte formatos para o player.
+imageio-ffmpeg>=0.5,<1
