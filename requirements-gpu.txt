@@ -1,0 +1,4 @@
+# Só para placa NVIDIA (Windows e Linux): bibliotecas CUDA 12 que o CTranslate2 (faster-whisper) carrega para
+# transcrever na GPU. O `python degravar.py instalar` instala sozinho quando encontra o nvidia-smi.
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9,<10

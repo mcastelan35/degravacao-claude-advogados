@@ -11,7 +11,10 @@ from urllib.parse import quote
 
 def minutagem(segundos: float, milis: bool = False, sep: str = ".") -> str:
     """Converte segundos em HH:MM:SS (ou HH:MM:SS.mmm)."""
-    segundos = max(0.0, float(segundos))
+    try:
+        segundos = min(max(0.0, float(segundos)), 99 * 3600 + 59 * 60 + 59)   # dado estranho nunca derruba um documento
+    except (TypeError, ValueError):
+        segundos = 0.0
     total_ms = int(round(segundos * 1000))
     h, resto = divmod(total_ms, 3_600_000)
     m, resto = divmod(resto, 60_000)

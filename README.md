@@ -1,65 +1,77 @@
 # Degravação com Claude — Claude para Advogados
 
+Plugin desenvolvido por **Marcos Vilas Boas** — [Fale comigo](https://www.instagram.com/advvilasboas/) (Instagram @advvilasboas).
+
 Transforme vídeos e áudios — audiências, depoimentos, reuniões com clientes, aulas, áudios de WhatsApp — em **degravação integral** com minutagem, organizada em um documento Markdown e acompanhada de um **player** em que você assiste ao vídeo com o texto sincronizado.
 
 - **Entrada:** uma pasta do seu computador que você escolhe uma vez (pode ser a pasta sincronizada do Google Drive), um link do Google Drive ou um arquivo avulso.
 - **Transcrição:** Whisper rodando **no seu computador** — o vídeo não é enviado para nenhum serviço.
 - **Falantes:** separação de quem fala pela voz, também local e **sem conta ou chave**, revisada pelo Claude pelo sentido da conversa.
 - **Estrutura:** o Claude lê a degravação e preenche resumo executivo, participantes, tópicos com minutagem, pontos de atenção e notas de revisão — sem tocar no texto integral.
-- **Reprodução:** `player.html` com clique-para-ir, busca, legenda, velocidade e atalhos de teclado.
+- **Reprodução:** um player no navegador com legendas sobre o vídeo, forma de onda colorida por falante, destaque palavra a palavra, **marcações** jurídicas, **revisão** do texto, citação com minutagem, janela flutuante e atalhos — e o documento também em **Word**.
 
 ---
 
-## 1. Requisitos
+## 1. Comece aqui
 
-- **Python 3.11 a 3.14** (recomendado 3.12), instalado pelo [python.org](https://www.python.org/downloads/). No Windows, marque *"Add python.exe to PATH"* na instalação. Se faltar, o atalho do Windows oferece instalar sozinho.
-- **Claude Code** (aba *Code* do app Claude Desktop), para o uso conversacional. O uso por dois cliques dispensa.
-- Espaço em disco para o modelo: ~3 GB (`large-v3`) ou ~1,6 GB (`turbo`), baixado uma única vez.
+Você precisa só do **app Claude** com a aba **Code** (Claude Code), em Windows 10/11 (x64) ou macOS, e de uns 6 GB livres. **Não precisa instalar Python nem nada antes**: o Claude cuida disso. (Só a instalação pelo GitHub, no caminho A, usa o **Git**; sem ele, use o arquivo `.plugin` ou o ZIP.)
 
-## 2. Instalação e uso em dois cliques (sem terminal)
+### A. Como plugin do Claude (recomendado)
 
-1. Nesta página do GitHub, clique em **Code → Download ZIP** e extraia a pasta onde quiser (por exemplo, em Documentos).
-2. Dê dois cliques em **`Degravar.bat`** (Windows) ou **`Degravar.command`** (Mac).
-   - Na primeira vez, ele instala a ferramenta (alguns minutos) e abre uma janela para você **escolher a pasta dos vídeos**.
-   - No Mac, se aparecer o aviso de segurança, clique com o botão direito no arquivo e escolha **Abrir**.
-3. Daí em diante, o uso é sempre o mesmo: **coloque os vídeos na pasta e dê dois cliques em `Degravar`**. Ele degrava só o que ainda não foi degravado e, ao terminar, abre o player.
+1. Adicione o plugin **Degravação**, de um destes jeitos:
+   - no Claude Code, digite os dois comandos (precisa do Git instalado; no Windows, [Git for Windows](https://git-scm.com/download/win)):
+     ```
+     /plugin marketplace add mcastelan35/degravacao-claude-advogados
+     /plugin install degravacao@degravacao-claude-advogados
+     ```
+   - ou envie o arquivo `degravacao-<versão>.plugin` (publicado na seção **Releases** do GitHub, ou enviado pelo autor; quem tem o código gera o seu com `python ferramentas/empacotar_plugin.py`) em **claude.ai › Personalizar › Plugins**; ele aparece sozinho no Claude Code.
+2. Abra a aba **Code** em qualquer pasta e digite **`/degravacao:comecar`**, ou só "quero começar a degravar".
+3. O Claude confere o computador, instala o que falta (sem pedir senha de administrador), pergunta onde ficam os vídeos — já mostrando suas pastas do Google Drive, OneDrive ou Dropbox —, testa com uma audiência fictícia de 40 segundos e abre o player.
 
-Os resultados ficam numa subpasta **`Degravações`** dentro da pasta que você escolheu, uma pasta por vídeo. **Os vídeos originais nunca são movidos nem alterados.** Para trocar a pasta, o modelo ou ligar a separação de falantes, use **`Configurar.bat`** / **`Configurar.command`**.
+Daí em diante, é só pedir: **"degrava os vídeos novos"**. Se o Claude Code pedir permissão para rodar um comando da ferramenta, responda "Sim, e não perguntar de novo". Para receber as versões novas: no Claude Code, `/plugin` › **Marketplaces** › atualizar (ou ligue a atualização automática ali); pelo terminal, `claude plugin update degravacao@degravacao-claude-advogados`.
 
-A primeira degravação demora mais, porque baixa o modelo de transcrição (~3 GB), uma única vez.
+### B. Abrindo a pasta do projeto no Claude Code
 
-> **Dica:** escolha como pasta dos vídeos uma pasta do **Google Drive para computador** (ex.: `G:\Meu Drive\Degravações`). Assim você sobe o vídeo pelo celular ou pelo navegador e ele já aparece no computador para ser degravado.
+Nesta página do GitHub, clique em **Code › Download ZIP** e extraia num caminho curto (ex.: `C:\Degravacao`). Abra essa pasta na aba **Code** e diga **"quero começar"**: o Claude segue a mesma skill [`comecar`](.claude/skills/comecar/SKILL.md). Os comandos da ferramenta já vêm liberados em [`.claude/settings.json`](.claude/settings.json), então o Claude não pede permissão a cada passo.
 
-### Instalação pelo terminal (opcional)
+### C. Em dois cliques, sem o Claude
 
-```bash
-git clone https://github.com/mcastelan35/degravacao-claude-advogados.git
-cd degravacao-claude-advogados
-python degravar.py instalar
-python degravar.py configurar          # abre a janela para escolher a pasta dos vídeos
-```
+Dê dois cliques em **`Degravar.bat`** (Windows) ou **`Degravar.command`** (Mac). Na primeira vez ele instala a ferramenta — se o computador não tiver Python, oferece instalar o **uv**, que traz o Python certo sem pedir administrador — e abre as janelas para escolher as pastas. Depois, é só pôr os vídeos na pasta e dar dois cliques de novo. **`Configurar`** troca as pastas. Se a instalação for interrompida (rede, janela fechada), dê dois cliques de novo: ela recomeça sozinha.
 
-> No Windows, se `python` não for reconhecido, use `py`. Para escolher a pasta sem janela: `python degravar.py configurar --entrada "C:\Gravações"`.
+No Mac, o arquivo baixado da internet vem com o aviso de segurança: no macOS 15 ou mais novo, abra **Ajustes do Sistema › Privacidade e Segurança** e clique em **Abrir Mesmo Assim**; em versões anteriores, botão direito › **Abrir**. Em Windows com processador Snapdragon (ARM64), a instalação só funciona pelo uv (ele traz um Python x64, que roda emulado).
 
-## 3. Uso com o Claude (recomendado)
+### Onde ficam os vídeos
 
-Abra a pasta do projeto no Claude Code e peça em linguagem natural:
+- **Pasta na nuvem** (Google Drive para computador, inclusive drives compartilhados; OneDrive e bibliotecas do SharePoint; Dropbox): você envia o vídeo pelo celular ou pelo navegador e ele aparece no computador para ser degravado. Nesse caso, as degravações ficam por padrão numa pasta **só deste computador** — Documentos/Degravações ou, se a sua pasta Documentos estiver no OneDrive/iCloud, a pasta do seu usuário; a ferramenta mostra qual e avisa quando a pasta escolhida é sincronizada —, porque têm dados de clientes. Para compartilhá-las com a equipe pela nuvem, escolha outra pasta.
+- **Pasta deste computador:** as degravações ficam numa subpasta `Degravações` ao lado dos vídeos. A ferramenta lê só a pasta escolhida (não as subpastas) e avisa o que deixou de fora.
+- **Os vídeos originais nunca são movidos nem alterados.**
 
+A primeira degravação demora mais, porque baixa o modelo de transcrição (1,6 a 3 GB), uma única vez. `python degravar.py diagnostico` mostra a qualquer momento o que está pronto e o próximo passo.
+
+## 2. No dia a dia, com o Claude
+
+Peça em linguagem natural:
+
+> Degrava os vídeos novos.
+>
 > Degrava esse vídeo: https://drive.google.com/file/d/…/view
 >
-> Degrava os vídeos da pasta entrada. As partes são Maria Souza e Construtora Alfa.
->
-> Degrava essa audiência separando os falantes: são 3 pessoas (juiz, advogada e testemunha).
+> Degrava essa audiência separando os falantes: são 3 pessoas (juiz, advogada e testemunha). As partes são Maria Souza e Construtora Alfa.
 >
 > Estrutura a degravação audiencia-03-05
 >
-> Gera a versão com falantes da audiencia-03-05
+> Aplique a revisão da degravação audiencia-03-05
 >
 > Abre o vídeo da audiência no minuto 12
 
-Na primeira vez, basta pedir **"instala e configura a degravação"**: o Claude instala tudo e abre no seu computador a janela para escolher a pasta dos vídeos.
+O Claude segue a skill [`degravar`](.claude/skills/degravar/SKILL.md): roda a transcrição em segundo plano, estrutura o documento (resumo, participantes, tópicos, pontos de atenção) e abre o player.
 
-O Claude segue a skill [`degravar`](.claude/skills/degravar/SKILL.md): instala o que faltar, roda a transcrição, estrutura o documento e abre o player.
+## 3. Revisão e marcações no player
+
+- **Marcar:** selecione um trecho e escolha a cor — *Relevante*, *Favorável*, *Desfavorável*, *Contradição* ou *Conferir* — ou tecle `M` durante a reprodução. Na aba **Marcações**, acrescente notas e copie tudo como citações para a peça.
+- **Revisar:** o botão **Revisar** deixa corrigir o texto de qualquer frase, trocar o falante de um parágrafo e dar nome aos falantes. Tudo fica guardado no navegador até você clicar em **Exportar revisão**.
+- **Aplicar:** peça ao Claude **"aplique a revisão"** (ou `python degravar.py revisao <nome>`). O documento, o Word, as legendas e o player são refeitos com as correções e as marcações; o texto original do Whisper continua guardado para conferência, e uma cópia da versão anterior fica na pasta. O que você editar no player depois de exportar não se perde: ele continua guardado no navegador até a próxima exportação.
+- **Corrigir uma frase pelo chat:** "corrija a frase do minuto 12:31: …" — o Claude usa `python degravar.py corrigir <nome> 00:12:31 "texto"`, que também guarda o original.
 
 ## 4. Uso direto pelo terminal
 
@@ -69,66 +81,105 @@ python degravar.py "https://drive.google.com/drive/folders/ID"   # pasta inteira
 python degravar.py "C:\Gravações\audiencia.mp4"                  # arquivo local
 python degravar.py "C:\Gravações"                                # todos os vídeos de uma pasta
 python degravar.py                                               # o que houver de novo na pasta escolhida
+python degravar.py --escolher                                    # abre a janela para escolher os arquivos
 python degravar.py transcrever --monitorar                       # vigia a pasta continuamente
 python degravar.py configurar --mostrar                          # mostra pastas e preferências
+python degravar.py configurar --saida                            # escolhe outra pasta para as degravações
 
 python degravar.py assistir                 # abre o player da última degravação
 python degravar.py assistir audiencia --em 754
 python degravar.py listar                   # todas as degravações e se já foram estruturadas
-python degravar.py regerar <nome>           # refaz .md e player após corrigir o transcricao.json
-python degravar.py falantes <nome> --separar --num-falantes 3   # separa falantes de degravação já feita
+python degravar.py regerar <nome>           # refaz .md, Word, legendas e player a partir do transcricao.json
+python degravar.py revisao <nome>           # aplica a revisão exportada pelo player
+python degravar.py corrigir <nome> 00:12:31 "texto certo"   # corrige uma frase (minutagem, 751s, ou o índice de `falantes --listar`), guardando o original
+python degravar.py diagnostico              # o que está pronto e o próximo passo
+python degravar.py exemplo                  # testa com uma audiência fictícia
+python degravar.py falantes <nome> --separar --num-falantes 3   # separa falantes de degravação já feita (descarta revisões; guarda cópia)
 python degravar.py falantes <nome> --listar                     # frases com o falante atribuído
 python degravar.py falantes <nome> --atribuir 12=F2 --nomear F1="Juiz(a)"
+python degravar.py artefato <nome> --sem-video --sem-marcacoes  # página para artefato só com o texto
 ```
+
+Os comandos aceitam o nome completo da degravação ou um trecho único dele; com mais de uma correspondência, listam as opções.
 
 Opções úteis de `transcrever`:
 
 | Opção | Para quê |
 |---|---|
-| `--modelo turbo` | várias vezes mais rápido que o padrão, precisão um pouco menor |
+| `--modelo turbo` / `large-v3` | força um modelo (padrão automático: `large-v3` com placa NVIDIA que dá conta dele, `turbo` nos demais casos) |
 | `--vocabulario "Fulano, Beltrana, Umuarama"` | melhora a grafia de nomes das partes e termos do caso |
 | `--num-falantes 3` | separa quem fala, sabendo quantas pessoas são (mais confiável) |
-| `--falantes` | separa quem fala sem informar quantas pessoas são |
+| `--falantes` / `--sem-falantes` | separa quem fala sem informar quantas pessoas são / não separa (aula, uma pessoa só), mesmo que seja o padrão configurado |
 | `--idioma ""` | detecta o idioma automaticamente (padrão: português) |
-| `--refazer` | degrava de novo algo já processado |
+| `--refazer` | degrava de novo algo já processado (a versão anterior fica guardada em `transcricao-antes-refazer-<data>.json`) |
 | `--copiar-video` | copia o arquivo local para a pasta de saída (pasta autocontida) |
 
 ### Google Drive
 
 O link precisa estar compartilhado como **"Qualquer pessoa com o link"**. Para arquivos sigilosos que não devem ser compartilhados, instale o **Google Drive para computador** e informe o caminho da pasta sincronizada (ex.: `"G:\Meu Drive\Audiências"`) — funciona como pasta local.
 
+### Formatos aceitos
+
+- **Vídeo:** MP4, MOV (inclusive HEVC do iPhone), WebM, MKV, AVI, WMV/ASF, FLV, MPG/MPEG, VOB (DVD), TS/MTS/M2TS (filmadoras), 3GP, OGV, MXF, DV, RM/RMVB e DAV (gravadores de câmeras de segurança).
+- **Áudio:** MP3, M4A, WAV, AIFF, CAF, OGG e Opus (WhatsApp), AMR, WMA, FLAC, AAC, AC3 e WebM/WEBA.
+
+A ferramenta olha o **conteúdo** do arquivo, não só a extensão:
+
+- o que o navegador já toca é usado como está;
+- um vídeo H.264 em outro contêiner (MKV, FLV, MTS) só troca de contêiner, em segundos;
+- o resto (HEVC do iPhone, WMV, AVI, MPEG-2, WebM só de áudio…) é convertido para `video.mp4` ou `audio.m4a` na pasta da degravação, usando a placa NVIDIA se houver. A cópia de vídeo fica com até 720 linhas e serve só para o player; **o original não é alterado**;
+- um arquivo sem trilha de áudio é recusado com aviso e anotado para não ser tentado de novo (`--refazer` insiste).
+
+Gravações do Webex (`.arf`, `.wrf`) e do Zoom ainda não convertidas (`.zoom`) estão em formato fechado e precisam ser exportadas para MP4 no próprio aplicativo; a ferramenta avisa quando encontra uma.
+
 ### Pasta dos vídeos
 
-Depois de `configurar`, `python degravar.py` degrava o que houver de novo na pasta escolhida e grava os resultados em `Degravações/`, sem mexer nos originais. Sem configuração, vale a pasta interna `entrada/` do repositório, que funciona como caixa de entrada: cada vídeo degravado é **movido** para `saida/`.
+Depois de `configurar`, `python degravar.py` degrava o que houver de novo na pasta escolhida (sem entrar em subpastas), sem mexer nos originais. Trocar a pasta das degravações não refaz o que já foi degravado na anterior. Sem configuração (só na pasta do projeto), vale a pasta interna `entrada/`, que funciona como caixa de entrada: cada vídeo degravado é **movido** para `saida/`.
 
 ## 5. O que é gerado
 
-Cada mídia gera `saida/<nome>/`:
+Cada mídia gera uma pasta `<nome>/` dentro da pasta das degravações:
 
 | Arquivo | Conteúdo |
 |---|---|
-| `<nome>.md` | ficha técnica, resumo/estrutura (preenchidos pelo Claude), índice por minutagem, trechos para conferência e **transcrição integral** com minutagem clicável |
-| `player.html` | vídeo + transcrição sincronizada; abre com dois cliques, sem internet |
-| `transcricao.json` | fonte de verdade: frases, tempos, confiança por palavra |
+| `<nome>.md` | ficha técnica, resumo/estrutura (preenchidos pelo Claude), índice por minutagem, trechos para conferência, marcações e **transcrição integral** com minutagem clicável |
+| `<nome>.docx` | o mesmo documento em **Word**: A4, margens ABNT, páginas numeradas, trechos a conferir com sublinhado ondulado, falantes com as marcas `(?)` e `✎` |
+| `player.html` | vídeo + legendas + transcrição sincronizada, resumo, marcações e ficha técnica; abre com dois cliques, sem internet (detalhes abaixo) |
+| `transcricao.json` | fonte de verdade: frases, tempos, confiança por palavra, forma de onda, revisões (nunca edite à mão: use `corrigir`, `falantes` e `revisao`) |
 | `<nome>.txt` | texto corrido, para colar em peças (com o nome de quem fala, se houver separação) |
-| `<nome>.srt` / `.vtt` | legendas (VLC, YouTube, editores de vídeo) |
+| `<nome>.srt` / `.vtt` | legendas de até duas linhas (VLC, YouTube, editores de vídeo) |
+| `video.mp4` / `audio.m4a` | só quando o original não toca no navegador: a cópia que o player usa |
 | o vídeo | quando veio do Drive ou da pasta `entrada/` |
+
+### O player
+
+- **Legendas sobre o vídeo**, com o nome de quem fala, também em tela cheia (`C`), em três tamanhos. A **janela flutuante** (`P`) leva o vídeo com a legenda para um canto da tela enquanto você escreve a peça (Chrome e Edge).
+- **Forma de onda** na linha do tempo, colorida por falante, com marcas de tópicos, pontos de atenção, marcações e trechos a conferir. Passe o mouse para ler o que foi dito ali; clique ou arraste para ir.
+- **Transcrição** com a palavra dita sublinhada; dois cliques numa palavra levam ao instante exato. **Sumário** dos tópicos no alto, com o tópico atual destacado.
+- **Citação e marcações:** selecione um trecho para copiar `“texto” (Falante, 00:12:31–00:12:48)` ou marcá-lo por categoria (seção 3).
+- **Conferência:** *Próximo a conferir* (`N`), *Repetir frase* (`R`), filtros por falante, *A conferir* e *Marcados*, palavras duvidosas com sublinhado ondulado.
+- **Busca** que ignora acentos, com anterior/próxima (`Enter` / `Shift+Enter`) e marcas na linha do tempo.
+- **Preferências:** tema claro ou escuro, tamanho do texto, layouts (lado a lado, vídeo grande, só texto), pular silêncios longos, voltar 2 s ao retomar. O player lembra onde você parou.
+- **Exportar:** Word, PDF (pela impressão), texto, legendas, e copiar a transcrição ou as marcações. Atalhos: tecla `?`.
 
 ## 6. Precisão
 
 | Modelo | Precisão | Velocidade | Download |
 |---|---|---|---|
-| `large-v3` (padrão) | máxima | lenta em CPU | ~3 GB |
-| `turbo` | muito próxima | várias vezes mais rápida | ~1,6 GB |
+| `large-v3` (padrão com placa NVIDIA que dá conta: float16 e 6 GB ou mais) | máxima | lenta em CPU | ~3 GB |
+| `turbo` (padrão sem placa, ou com placa menor) | muito próxima | várias vezes mais rápida | ~1,6 GB |
 | `medium` / `small` | menor | rápidas | 1,5 GB / 0,5 GB |
 
-Com placa de vídeo NVIDIA (CUDA), a transcrição é muitas vezes mais rápida; sem ela, roda em CPU automaticamente. Referência: numa máquina de 4 núcleos sem placa de vídeo, o `large-v3` levou cerca de 2x a duração da gravação (9 min de audiência em ~18 min).
+Com placa de vídeo NVIDIA (CUDA), a transcrição é muitas vezes mais rápida; sem ela, roda em CPU automaticamente. No Windows e no Linux, `python degravar.py instalar` (ou o primeiro `Degravar.bat`) detecta a placa e instala as bibliotecas CUDA sozinho (~2 GB, uma vez; `--sem-gpu` pula). Placas pequenas ou antigas (menos de 6 GB, sem float16) ficam com o `turbo`, que também roda na placa. Referências:
+
+- numa máquina de 4 núcleos sem placa de vídeo, o `large-v3` levou cerca de 2x a duração da gravação (9 min de audiência em ~18 min);
+- com `turbo`, 11,4 min de áudio levaram 12 s numa GeForce RTX 5050 (8 GB) e 93 s na CPU da mesma máquina.
 
 Para melhorar o resultado:
 
 - Informe nomes próprios com `--vocabulario` e mantenha termos recorrentes em [`config/vocabulario.txt`](config/vocabulario.txt).
 - Trechos com baixa confiança aparecem com ⚠️ no `.md` e com sublinhado ondulado no player — confira-os na mídia.
-- Corrija erros editando o `txt` do trecho em `transcricao.json` e rodando `regerar` (ou peça ao Claude).
+- Corrija erros no próprio player (**Revisar**) e peça ao Claude para aplicar a revisão.
 
 ## 7. Separação de falantes
 
@@ -148,11 +199,11 @@ Na prática: a voz acerta bem as falas longas, erra nas respostas curtas ("Sim",
 
 ## 8. Ver dentro do Claude (artefato)
 
-O player local abre no navegador do computador. Para assistir **dentro do Claude** ou mandar o link a alguém, peça ao Claude: **"publica a degravação X como artefato"**. Ele gera uma página com o vídeo, a transcrição sincronizada, a busca, o resumo, os tópicos e a ficha técnica, e publica no claude.ai.
+O player local abre no navegador do computador. Para assistir **dentro do Claude** ou mandar o link a alguém, peça ao Claude: **"publica a degravação X como artefato"**. Ele publica no claude.ai a mesma página do player (legendas, forma de onda, filtros, citação, marcações, resumo e ficha técnica). Ficam de fora a impressão, a revisão e os arquivos para baixar, que o artefato não permite; marcações feitas na página publicada ficam só no navegador de quem as fez.
 
-- O artefato aceita arquivos de até 15 MB, então a mídia é recomprimida: vídeos curtos saem com imagem (até cerca de 10 minutos), gravações mais longas só com o áudio e, no limite, só com a transcrição.
-- **Atenção à privacidade:** o artefato é privado por padrão (só você abre até compartilhar pelo menu da página), mas a mídia e o texto **saem do seu computador** e vão para o claude.ai. Use para aulas e conteúdo público; para audiências e reuniões com clientes, prefira o player local ou publique só a transcrição (`--sem-video`).
-- Pelo terminal: `python degravar.py artefato <nome> --titulo "Título"` prepara a página e a mídia; a publicação é feita pelo Claude.
+- O artefato aceita arquivos de até 15 MB, então a mídia é recomprimida (sem os metadados do original, como a localização do celular): vídeos curtos saem com imagem (até cerca de 10 minutos), gravações mais longas só com o áudio e, no limite, só com a transcrição — a página diz o motivo.
+- **Atenção à privacidade:** o artefato é privado por padrão (só você abre até compartilhar pelo menu da página), mas a mídia, o texto, a estrutura e as **marcações com suas notas** saem do seu computador e vão para o claude.ai. Use para aulas e conteúdo público; para audiências e reuniões com clientes, prefira o player local ou publique só a transcrição: `--sem-video` não envia mídia nenhuma (nem o áudio) e `--sem-marcacoes` deixa as marcações de fora. O link do Drive de origem nunca entra na página.
+- Pelo terminal: `python degravar.py artefato <nome> --titulo "Título"` prepara a página e a mídia; a publicação é feita pelo Claude. Ao republicar sem a mídia, o Claude remove a anterior do artefato.
 
 ## 9. Limitações — leia antes de usar em processo
 
@@ -162,18 +213,27 @@ O player local abre no navegador do computador. Para assistir **dentro do Claude
 
 ## 10. Privacidade (LGPD)
 
-- O vídeo e o áudio são processados **somente no seu computador** — transcrição e separação de falantes. Só saem dele se você pedir um artefato (seção 8).
-- Quando você pede ao Claude para estruturar, apenas o **texto** da degravação é lido pelo Claude, nas condições da sua conta.
+- O vídeo e o áudio são processados **somente no seu computador** — transcrição e separação de falantes. Só saem dele se você pedir um artefato com mídia (seção 8).
+- Quando você pede ao Claude para estruturar, revisar falantes ou corrigir, o **texto** da degravação é lido pelo Claude — ou seja, vai para a sua conta do Claude, nas condições dela. Se preferir que nem o texto saia, use a ferramenta só pelos atalhos de dois cliques ou pelo terminal.
+- Com os vídeos numa pasta da nuvem, as degravações ficam por padrão numa pasta só deste computador (fora do OneDrive/iCloud, mesmo que a sua pasta Documentos esteja neles): só sobem para a nuvem se você escolher. `diagnostico` e `configurar` dizem se a pasta das degravações é sincronizada.
 - `entrada/` e `saida/` estão no `.gitignore`: suas gravações nunca vão para o GitHub, mesmo que você faça um fork.
 
 ## 11. Problemas comuns
 
 | Sintoma | Solução |
 |---|---|
-| `Dependências ausentes` | dê dois cliques em `Degravar` ou rode `python degravar.py instalar` |
+| Não sei o que falta | `python degravar.py diagnostico` (ou peça ao Claude "quero começar") |
+| `Dependências ausentes` ou instalação interrompida | dê dois cliques em `Degravar` ou rode `python degravar.py instalar` (recomeça do zero sozinho) |
+| `Command 'git' not found` ao adicionar o marketplace | instale o [Git for Windows](https://git-scm.com/download/win), ou use o arquivo `.plugin` / o ZIP (seção 1) |
+| "caminho longo demais para o Windows" | mova a pasta da ferramenta para mais perto da raiz (ex.: `C:\Degravacao`) |
+| "A pasta dos vídeos não está acessível" | abra o Google Drive/OneDrive ou conecte o HD externo; ou `configurar --entrada` para outra pasta |
 | Janela de escolha da pasta não abriu | rode `python degravar.py configurar --entrada "CAMINHO DA PASTA"` |
 | Falha no link do Drive | compartilhe como "Qualquer pessoa com o link" ou use a pasta do Google Drive para computador |
-| Player não toca o vídeo | o vídeo foi movido ou o formato não é suportado: rode de novo com `--refazer` (a ferramenta converte `.mkv`, `.avi`, `.wmv` etc.) ou selecione o arquivo no aviso do próprio player |
+| Player não toca o vídeo | o vídeo foi movido: selecione o arquivo no aviso do próprio player. No Windows, caminhos com mais de 260 caracteres não abrem: escolha uma pasta de degravações mais curta (`configurar --saida`) e rode `regerar`. Degravações feitas antes da conversão automática de formatos: rode de novo com `--refazer` |
+| "não tem trilha de áudio" | o arquivo é só imagem (ex.: gravação de tela sem som); não há fala para degravar, e ele não será tentado de novo |
+| Placa NVIDIA não usada ("driver antigo") | atualize o driver da NVIDIA (nvidia.com/drivers); reinstalar não resolve |
+| Windows com Snapdragon (ARM64) | instale pelo uv (seção 1, caminho C): as bibliotecas só existem para x64 |
+| "revisão exportada de outra versão" | a degravação foi refeita depois da exportação: refaça a revisão no player novo (ou `revisao --forcar`, por sua conta) |
 | Muito lento | use `--modelo turbo`; feche outros programas pesados |
 | Nomes escritos errado | `--vocabulario "Nome Completo, Outro Nome"` |
-| Falantes trocados | informe `--num-falantes`; peça ao Claude a revisão de falantes; corrija com `falantes --atribuir` |
+| Falantes trocados | peça ao Claude a revisão de falantes; corrija com `falantes --atribuir`. Separar de novo (`--separar`/`--num-falantes`) descarta a revisão feita (fica uma cópia) |

@@ -10,3 +10,10 @@ entrada/*
 !entrada/.gitkeep
 saida/*
 !saida/.gitkeep
+
+# Áudio de teste gerado pelo comando exemplo
+exemplos/
+
+# Pacote do plugin para o claude.ai (gerado por ferramentas/empacotar_plugin.py)
+dist/
+config/ignorados.json

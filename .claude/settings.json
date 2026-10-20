@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python degravar.py *)",
+      "PowerShell(python degravar.py *)",
+      "Bash(py degravar.py *)",
+      "PowerShell(py degravar.py *)",
+      "Bash(python3 degravar.py *)",
+      "PowerShell(python3 degravar.py *)",
+      "Bash(uv run --no-project --python 3.12 degravar.py *)",
+      "PowerShell(uv run --no-project --python 3.12 degravar.py *)"
+    ]
+  }
+}

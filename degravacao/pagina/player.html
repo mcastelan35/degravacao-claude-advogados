@@ -1,0 +1,225 @@
+<title>__TITULO__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+__FONTES__
+<style>
+/*__CSS__*/
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 4.8v14.4c0 .8.9 1.3 1.6.8l11-7.2a1 1 0 0 0 0-1.6l-11-7.2c-.7-.5-1.6 0-1.6.8z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-voltar" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4.5v4.2h4.2"/><text x="12" y="15.4" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui, sans-serif">5</text></symbol>
+  <symbol id="i-avancar" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4.5v4.2h-4.2"/><text x="12" y="15.4" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui, sans-serif">5</text></symbol>
+  <symbol id="i-som" viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.6v12.8l-4.8-3.9H4z"/><path d="M15.6 9.2a4 4 0 0 1 0 5.6"/><path d="M18.3 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
+  <symbol id="i-mudo" viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.6v12.8l-4.8-3.9H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+  <symbol id="i-legenda" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M7 14h4.5M13.5 14H17M7 10.5h2.5M11.5 10.5H17"/></symbol>
+  <symbol id="i-pip" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12" y="11.2" width="6.5" height="5.3" rx="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-tela-cheia" viewBox="0 0 24 24"><path d="M4 9V4.5h4.5M20 9V4.5h-4.5M4 15v4.5h4.5M20 15v4.5h-4.5"/></symbol>
+  <symbol id="i-sair-tela" viewBox="0 0 24 24"><path d="M8.5 4v4.5H4M15.5 4v4.5H20M8.5 20v-4.5H4M15.5 20v-4.5H20"/></symbol>
+  <symbol id="i-repetir" viewBox="0 0 24 24"><path d="M17 3.5l3 3-3 3"/><path d="M4 11.5v-1a4 4 0 0 1 4-4h12"/><path d="M7 20.5l-3-3 3-3"/><path d="M20 12.5v1a4 4 0 0 1-4 4H4"/></symbol>
+  <symbol id="i-bandeira" viewBox="0 0 24 24"><path d="M5.5 21V4"/><path d="M5.5 4.5h11.5l-2.5 4 2.5 4H5.5"/></symbol>
+  <symbol id="i-marcar" viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-copiar" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5.5a1.5 1.5 0 0 0-1.5-1.5H5.5A1.5 1.5 0 0 0 4 5.5V14a1.5 1.5 0 0 0 1.5 1.5h3"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="M15.5 15.5l4.5 4.5"/></symbol>
+  <symbol id="i-acima" viewBox="0 0 24 24"><path d="M6 14.5l6-6 6 6"/></symbol>
+  <symbol id="i-abaixo" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+  <symbol id="i-ajustes" viewBox="0 0 24 24"><path d="M4 7h9M17.5 7H20M4 17h3.5M12 17h8"/><circle cx="15.3" cy="7" r="2.2"/><circle cx="9.7" cy="17" r="2.2"/></symbol>
+  <symbol id="i-teclado" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/></symbol>
+  <symbol id="i-baixar" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5l4.5 4.5 4.5-4.5"/><path d="M4.5 19.5h15"/></symbol>
+  <symbol id="i-editar" viewBox="0 0 24 24"><path d="M4.5 19.5h3.8L19 8.8a2.4 2.4 0 0 0-3.4-3.4L4.9 16.1z"/><path d="M14 7l3 3"/></symbol>
+  <symbol id="i-fechar" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-lixo" viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v6M14 11v6M6.5 7l.8 12.2a1 1 0 0 0 1 .8h7.4a1 1 0 0 0 1-.8L17.5 7M9.5 7V4.5h5V7"/></symbol>
+  <symbol id="i-imprimir" viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7.5 14h9v6h-9z"/></symbol>
+  <symbol id="i-documento" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4V20a.5.5 0 0 1-.5.5h-11A.5.5 0 0 1 6 20z"/><path d="M14 3.5V8h4M9 12.5h6M9 16h6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<div class="app" id="app" data-layout="lado">
+  <header class="topo">
+    <div class="topo-titulo">
+      <div class="rotulo">Degravação</div>
+      <h1 id="titulo"></h1>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="topo-acoes">
+      <p class="credito">Plugin desenvolvido por <b>Marcos Vilas Boas</b> ·
+        <a href="https://www.instagram.com/advvilasboas/" target="_blank" rel="noopener" title="Instagram @advvilasboas">Fale comigo</a></p>
+      <div class="ancora" id="ancora-exportar" hidden>
+        <button class="btn" id="btn-exportar" aria-haspopup="true" aria-expanded="false" aria-controls="menu-exportar"><svg class="ic"><use href="#i-baixar"/></svg><span>Exportar</span></button>
+        <div class="menu" id="menu-exportar" hidden></div>
+      </div>
+      <button class="btn" id="btn-revisar" aria-pressed="false" hidden title="Corrigir o texto e os falantes neste navegador"><svg class="ic"><use href="#i-editar"/></svg><span>Revisar</span><span class="contador" id="cont-revisao" hidden></span></button>
+      <div class="ancora">
+        <button class="btn icone" id="btn-ajustes" aria-label="Preferências" title="Preferências" aria-expanded="false" aria-controls="ajustes"><svg class="ic"><use href="#i-ajustes"/></svg></button>
+        <div class="menu painel-ajustes" id="ajustes" role="group" aria-label="Preferências" hidden>
+          <div class="aj-linha" id="aj-tema-linha"><span>Tema</span>
+            <div class="segmentado" id="aj-tema"><button data-v="auto">Auto</button><button data-v="light">Claro</button><button data-v="dark">Escuro</button></div></div>
+          <div class="aj-linha" id="aj-layout-linha"><span>Layout</span>
+            <div class="segmentado" id="aj-layout"><button data-v="lado">Lado a lado</button><button data-v="video">Vídeo grande</button><button data-v="texto">Só texto</button></div></div>
+          <div class="aj-linha"><span>Tamanho do texto</span>
+            <div class="segmentado" id="aj-fonte"><button data-d="-1" aria-label="Diminuir o texto">A−</button><output id="aj-fonte-v">16</output><button data-d="1" aria-label="Aumentar o texto">A+</button></div></div>
+          <div class="aj-linha" id="aj-legenda-linha"><span>Legenda no vídeo</span>
+            <div class="segmentado" id="aj-legenda"><button data-v="p">P</button><button data-v="m">M</button><button data-v="g">G</button></div></div>
+          <label class="aj-linha chave"><span>Pular silêncios longos</span><input type="checkbox" id="aj-pular"></label>
+          <label class="aj-linha chave"><span>Voltar 2 s ao retomar</span><input type="checkbox" id="aj-retroceder"></label>
+        </div>
+      </div>
+      <button class="btn icone" id="btn-atalhos" aria-label="Atalhos do teclado" title="Atalhos do teclado (?)"><svg class="ic"><use href="#i-teclado"/></svg></button>
+    </div>
+  </header>
+
+  <div class="mesa" id="mesa">
+    <section class="midia" id="midia" aria-label="Mídia">
+      <div class="tela" id="tela">
+        <video id="video" playsinline preload="metadata"></video>
+        <div class="palco-audio" id="palco-audio" hidden>
+          <div class="palco-falante" id="palco-falante"></div>
+          <p class="palco-texto" id="palco-texto"></p>
+        </div>
+        <div class="legenda-tela" id="legenda-tela" aria-hidden="true"></div>
+        <button class="tela-play" id="tela-play" aria-label="Reproduzir"><svg class="ic"><use href="#i-play"/></svg></button>
+      </div>
+      <div class="aviso" id="aviso-midia" hidden></div>
+
+      <div class="linha-tempo" id="lt" role="slider" tabindex="0" aria-label="Linha do tempo da gravação"
+           aria-valuemin="0" aria-valuenow="0" aria-valuetext="00:00:00">
+        <canvas id="onda" aria-hidden="true"></canvas>
+        <div class="lt-tocado" id="lt-tocado"><canvas id="onda-tocada" aria-hidden="true"></canvas></div>
+        <div class="lt-camada" id="lt-marcos"></div>
+        <div class="lt-camada" id="lt-busca"></div>
+        <div class="cabeca" id="cabeca"></div>
+        <div class="dica" id="dica" hidden></div>
+      </div>
+
+      <div class="controles">
+        <div class="grupo">
+          <button class="btn icone" id="btn-voltar" title="Voltar 5 s (←)" aria-label="Voltar 5 segundos"><svg class="ic"><use href="#i-voltar"/></svg></button>
+          <button class="btn-play" id="btn-play" title="Reproduzir (espaço)" aria-label="Reproduzir"><svg class="ic"><use href="#i-play"/></svg></button>
+          <button class="btn icone" id="btn-avancar" title="Avançar 5 s (→)" aria-label="Avançar 5 segundos"><svg class="ic"><use href="#i-avancar"/></svg></button>
+          <span class="tempo" id="tempo"><b id="tempo-atual">00:00:00</b><span id="tempo-total"> / 00:00:00</span></span>
+        </div>
+        <div class="grupo">
+          <select class="btn velocidade" id="velocidade" aria-label="Velocidade" title="Velocidade (&lt; &gt;)">
+            <option value="0.5">0,5×</option><option value="0.75">0,75×</option><option value="1" selected>1×</option>
+            <option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="1.75">1,75×</option><option value="2">2×</option>
+          </select>
+          <div class="volume">
+            <button class="btn icone" id="btn-som" aria-label="Silenciar" title="Silenciar"><svg class="ic"><use href="#i-som"/></svg></button>
+            <input type="range" id="volume" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+          </div>
+          <button class="btn icone" id="btn-legendas" aria-pressed="true" aria-label="Legendas" title="Legendas (C)"><svg class="ic"><use href="#i-legenda"/></svg></button>
+          <button class="btn icone" id="btn-pip" aria-label="Janela flutuante" title="Janela flutuante: assista enquanto escreve (P)"><svg class="ic"><use href="#i-pip"/></svg></button>
+          <button class="btn icone" id="btn-tela-cheia" aria-label="Tela cheia" title="Tela cheia (F)"><svg class="ic"><use href="#i-tela-cheia"/></svg></button>
+        </div>
+      </div>
+      <div class="legenda-lt" id="legenda-lt"></div>
+
+      <div class="agora" id="agora">
+        <div class="agora-topico" id="agora-topico"></div>
+        <p class="agora-texto" id="agora-texto" aria-live="polite"></p>
+        <div class="agora-acoes">
+          <button class="btn" id="btn-repetir" aria-pressed="false" title="Repete a frase atual para conferir (R)"><svg class="ic"><use href="#i-repetir"/></svg><span>Repetir frase</span></button>
+          <button class="btn" id="btn-proximo" title="Próximo trecho a conferir (N)"><svg class="ic"><use href="#i-bandeira"/></svg><span id="txt-proximo">A conferir</span></button>
+          <button class="btn" id="btn-marcar-atual" title="Marcar a frase atual (M)"><svg class="ic"><use href="#i-marcar"/></svg><span>Marcar</span></button>
+          <button class="btn" id="btn-copiar-ts" title="Copiar a minutagem atual"><svg class="ic"><use href="#i-copiar"/></svg><span>Minutagem</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="folha" aria-label="Conteúdo da degravação">
+      <div class="abas" role="tablist">
+        <button class="aba" role="tab" id="aba-transcricao" aria-controls="p-transcricao" aria-selected="true">Transcrição</button>
+        <button class="aba" role="tab" id="aba-resumo" aria-controls="p-resumo" aria-selected="false">Resumo</button>
+        <button class="aba" role="tab" id="aba-marcacoes" aria-controls="p-marcacoes" aria-selected="false">Marcações<span class="contador" id="cont-marcas" hidden></span></button>
+        <button class="aba" role="tab" id="aba-ficha" aria-controls="p-ficha" aria-selected="false">Ficha</button>
+      </div>
+
+      <div class="painel" id="p-transcricao" role="tabpanel" aria-labelledby="aba-transcricao">
+        <h2 class="so-impressao">Transcrição integral</h2>
+        <div class="faixa-revisao" id="faixa-revisao" hidden>
+          <p><b>Modo revisão.</b> Clique numa frase para corrigir o texto e troque o falante pelo rótulo do parágrafo.
+            Tudo fica guardado neste navegador até você exportar; depois, peça ao Claude para aplicar a revisão.</p>
+          <div class="faixa-acoes">
+            <button class="btn principal" id="rev-exportar"><svg class="ic"><use href="#i-baixar"/></svg><span>Exportar revisão</span></button>
+            <button class="btn" id="rev-desfazer"><span>Desfazer tudo</span></button>
+            <button class="btn" id="rev-concluir"><svg class="ic"><use href="#i-check"/></svg><span>Concluir</span></button>
+          </div>
+        </div>
+        <div class="busca" id="barra-busca">
+          <div class="linha-busca">
+            <label class="campo-busca"><svg class="ic"><use href="#i-busca"/></svg>
+              <input type="search" id="busca" placeholder="Buscar na transcrição" aria-label="Buscar na transcrição" autocomplete="off"></label>
+            <span class="contagem" id="contagem"></span>
+            <button class="btn icone" id="busca-ant" title="Ocorrência anterior (Shift+Enter)" aria-label="Ocorrência anterior"><svg class="ic"><use href="#i-acima"/></svg></button>
+            <button class="btn icone" id="busca-prox" title="Próxima ocorrência (Enter)" aria-label="Próxima ocorrência"><svg class="ic"><use href="#i-abaixo"/></svg></button>
+            <label class="chave mini" title="Rolar a transcrição junto com a reprodução"><span>Acompanhar</span><input type="checkbox" id="seguir" checked></label>
+          </div>
+          <div class="filtros" id="filtros" role="group" aria-label="Mostrar"></div>
+          <nav class="sumario" id="sumario" aria-label="Tópicos" hidden></nav>
+        </div>
+        <div class="transcricao" id="transcricao"></div>
+        <p class="nota"><span class="duvida">sublinhado ondulado</span>: conferir na mídia · clique numa frase para ouvir ·
+          selecione um trecho para citar ou marcar · <kbd>?</kbd> mostra os atalhos.</p>
+      </div>
+
+      <div class="painel" id="p-resumo" role="tabpanel" aria-labelledby="aba-resumo" hidden>
+        <h2 class="so-impressao">Resumo e estrutura</h2>
+        <div class="estrutura" id="estrutura"></div>
+      </div>
+
+      <div class="painel" id="p-marcacoes" role="tabpanel" aria-labelledby="aba-marcacoes" hidden>
+        <h2 class="so-impressao">Marcações</h2>
+        <div class="marcas-topo">
+          <p class="marcas-ajuda" id="marcas-ajuda"></p>
+          <div class="marcas-acoes">
+            <button class="btn" id="marcas-copiar"><svg class="ic"><use href="#i-copiar"/></svg><span>Copiar todas</span></button>
+            <button class="btn" id="marcas-exportar" hidden><svg class="ic"><use href="#i-baixar"/></svg><span>Exportar revisão</span></button>
+          </div>
+        </div>
+        <div class="lista-marcas" id="lista-marcas"></div>
+      </div>
+
+      <div class="painel" id="p-ficha" role="tabpanel" aria-labelledby="aba-ficha" hidden>
+        <h2 class="so-impressao">Ficha técnica</h2>
+        <dl class="dados" id="dados"></dl>
+        <div id="falas"></div>
+        <div id="arquivos"></div>
+        <p class="aviso">Transcrição automática integral, gerada localmente com Whisper. Antes de citar em peça ou juntar aos autos,
+          confira os trechos sinalizados ouvindo a gravação.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="flutuante" id="selecao" role="toolbar" aria-label="Trecho selecionado" hidden>
+  <button class="btn" id="sel-citar"><svg class="ic"><use href="#i-copiar"/></svg><span>Copiar citação</span></button>
+  <span class="sel-sep" aria-hidden="true"></span>
+  <span class="sel-rotulo">Marcar como</span>
+  <div class="sel-cats" id="sel-cats"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-texto"></span><button class="toast-acao" id="toast-acao" hidden></button></div>
+
+<dialog class="dialogo" id="dlg-atalhos" aria-labelledby="dlg-atalhos-titulo">
+  <div class="dlg-cab"><h2 id="dlg-atalhos-titulo">Atalhos do teclado</h2>
+    <button class="btn icone" data-fechar aria-label="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button></div>
+  <dl class="atalhos">
+    <dt><kbd>Espaço</kbd> <kbd>K</kbd></dt><dd>Reproduzir ou pausar</dd>
+    <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Voltar ou avançar 5 segundos</dd>
+    <dt><kbd>J</kbd> <kbd>L</kbd></dt><dd>Voltar ou avançar 10 segundos</dd>
+    <dt><kbd>&lt;</kbd> <kbd>&gt;</kbd></dt><dd>Mais devagar ou mais rápido</dd>
+    <dt><kbd>C</kbd></dt><dd>Ligar ou desligar as legendas</dd>
+    <dt><kbd>M</kbd></dt><dd>Marcar a frase atual</dd>
+    <dt><kbd>R</kbd></dt><dd>Repetir a frase atual</dd>
+    <dt><kbd>N</kbd></dt><dd>Próximo trecho a conferir</dd>
+    <dt><kbd>F</kbd></dt><dd>Tela cheia</dd>
+    <dt><kbd>P</kbd></dt><dd>Janela flutuante</dd>
+    <dt><kbd>/</kbd></dt><dd>Buscar na transcrição</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Fechar menus e limpar a busca</dd>
+  </dl>
+  <p class="dlg-nota">Dica: dois cliques numa palavra levam ao instante exato em que ela é dita.</p>
+</dialog>
+
+<script>const D = __DADOS__;</script>
+<script>
+/*__JS__*/
+</script>

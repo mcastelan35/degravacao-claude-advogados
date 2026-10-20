@@ -1,5 +1,7 @@
 # Transcrição local (Whisper otimizado com CTranslate2). Inclui PyAV: não exige ffmpeg instalado.
 faster-whisper>=1.1,<2
+# 4.8.1+ corrige a queda no Windows com tempos por palavra (0xC0000094); 4.8.3, travamentos ao encerrar.
+ctranslate2>=4.8.2
 # PyAV 17+ removeu o parâmetro `metadata_errors` usado pelo faster-whisper 1.2.
 av>=11,<17
 # Download de arquivos e pastas compartilhados no Google Drive.

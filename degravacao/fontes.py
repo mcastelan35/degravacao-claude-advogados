@@ -3,12 +3,28 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-EXT_VIDEO = {".mp4", ".m4v", ".mov", ".mkv", ".avi", ".webm", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp", ".ts"}
-EXT_AUDIO = {".mp3", ".m4a", ".wav", ".ogg", ".opus", ".aac", ".flac", ".wma", ".amr"}
+# O que vale é o conteúdo (midia.examinar); a extensão só decide o que entra na varredura de pastas.
+EXT_VIDEO = {".mp4", ".m4v", ".mov", ".qt", ".mkv", ".webm", ".avi", ".divx", ".wmv", ".asf", ".flv", ".f4v",
+             ".mpg", ".mpeg", ".vob", ".ts", ".mts", ".m2ts", ".m2t", ".mod", ".tod", ".3gp", ".3g2",
+             ".ogv", ".mxf", ".dv", ".rm", ".rmvb", ".dav"}
+EXT_AUDIO = {".mp3", ".m4a", ".m4b", ".wav", ".aiff", ".aif", ".ogg", ".oga", ".opus", ".weba", ".aac", ".ac3",
+             ".flac", ".wma", ".amr", ".3ga", ".mka", ".mp2", ".caf"}
 EXT_MIDIA = EXT_VIDEO | EXT_AUDIO
+# Arquivos comuns numa pasta de trabalho que não são gravações: a varredura os ignora em silêncio.
+EXT_DOCUMENTOS = {".pdf", ".doc", ".docx", ".odt", ".rtf", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".txt", ".md",
+                  ".json", ".xml", ".html", ".htm", ".srt", ".vtt", ".zip", ".rar", ".7z", ".jpg", ".jpeg", ".png",
+                  ".gif", ".heic", ".webp", ".bmp", ".svg", ".ini", ".lnk", ".url", ".db", ".ds_store", ".log", ".bak"}
+
+# Gravações em formato fechado, que nenhum programa aberto lê: só o aplicativo de origem converte.
+PROPRIETARIOS = {
+    ".arf": "gravação do Webex: abra no Webex Network Recording Player e exporte para MP4",
+    ".wrf": "gravação do Webex: abra no Webex Network Recording Player e exporte para MP4",
+    ".zoom": "gravação do Zoom ainda não convertida: abra o Zoom no computador que gravou para gerar o MP4",
+}
 
 _RE_ARQUIVO = [
     re.compile(r"drive\.google\.com/file/d/([\w-]{10,})"),
@@ -79,9 +95,14 @@ def baixar_drive(url: str, destino: Path, ja_processados: set[str]) -> list[Midi
             print(f"  ↷ já degravado anteriormente: {nome or fid} (use --refazer para repetir)")
             continue
         print(f"  ↓ baixando do Drive: {nome or fid}")
-        saida = str(destino / nome) if nome else str(destino) + "/"
+        # Cada item numa subpasta própria (o id): dois arquivos com o mesmo nome, em links ou subpastas
+        # diferentes do Drive, nunca gravam um por cima do outro.
+        pasta_item = destino / fid
+        pasta_item.mkdir(parents=True, exist_ok=True)
+        saida = str(pasta_item / nome) if nome else str(pasta_item) + "/"
         try:
-            caminho = gdown.download(id=fid, output=saida, quiet=False)
+            # Barra de progresso só no terminal; em arquivo (Claude em segundo plano) ela vira uma linha gigante.
+            caminho = gdown.download(id=fid, output=saida, quiet=not sys.stdout.isatty())
         except Exception as e:  # noqa: BLE001
             raise ErroEntrada(_MSG_DRIVE.format(erro=e)) from e
         if not caminho:
@@ -93,34 +114,79 @@ def baixar_drive(url: str, destino: Path, ja_processados: set[str]) -> list[Midi
     return midias
 
 
+def _visivel(p: Path) -> bool:
+    return not p.name.startswith((".", "~$"))
+
+
 def listar_pasta(pasta: Path) -> list[Path]:
     return sorted(
         p for p in pasta.iterdir()
-        if p.is_file() and p.suffix.lower() in EXT_MIDIA and not p.name.startswith(".")
+        if p.is_file() and p.suffix.lower() in EXT_MIDIA and _visivel(p)
     )
 
 
+def avisos_da_pasta(pasta: Path, ignorar: Path | None = None) -> list[str]:
+    """O que a varredura deixou de fora e o usuário pode não perceber: gravações em formato fechado,
+    arquivos que não parecem mídia e subpastas com vídeos (a varredura não desce nelas)."""
+    avisos: list[str] = []
+    subpastas: list[str] = []
+    for f in sorted(pasta.iterdir()):
+        if not _visivel(f):
+            continue
+        if f.is_dir():
+            if ignorar and f.resolve() == ignorar.resolve():
+                continue
+            try:
+                n = sum(1 for x in f.iterdir() if x.is_file() and x.suffix.lower() in EXT_MIDIA and _visivel(x))
+            except OSError:
+                n = 0
+            if n:
+                subpastas.append(f"{f.name} ({n})")
+            continue
+        suf = f.suffix.lower()
+        if suf in PROPRIETARIOS:
+            avisos.append(f"↷ {f.name} pulado — {PROPRIETARIOS[suf]}.")
+        elif suf not in EXT_MIDIA and suf not in EXT_DOCUMENTOS:
+            avisos.append(f"↷ {f.name} ignorado: não parece vídeo nem áudio (para tentar mesmo assim, informe o caminho do arquivo).")
+    if subpastas:
+        avisos.append("↷ há vídeos ou áudios em subpastas, que a varredura não lê: " + ", ".join(subpastas)
+                      + ". Informe a subpasta ou mova os arquivos para a pasta principal.")
+    return avisos
+
+
 def resolver(entradas: list[str], caixa_entrada: Path, downloads: Path, ja_processados: set[str],
-             mover_caixa: bool = True) -> list[Midia]:
+             mover_caixa: bool = True, erros: list[str] | None = None, ignorar_pasta: Path | None = None) -> list[Midia]:
     """Transforma os argumentos do usuário em uma lista de mídias a degravar.
 
     Sem argumentos, processa a pasta de entrada. Com `mover_caixa`, os arquivos dela são
     movidos para a saída depois de degravados; sem, ficam onde estão e são pulados na próxima vez.
+    Uma entrada inválida não derruba as outras: a mensagem vai para `erros` (ou, sem a lista, levanta
+    ErroEntrada quando nada sobrou).
     """
     if not entradas:
         entradas = [str(caixa_entrada)]
 
     midias: list[Midia] = []
+    problemas: list[str] = []
     for item in entradas:
         item = item.strip().strip('"').strip("'")
-        if eh_link_drive(item):
-            midias += baixar_drive(item, downloads, ja_processados)
-            continue
+        try:
+            if eh_link_drive(item):
+                midias += baixar_drive(item, downloads, ja_processados)
+                continue
 
-        p = Path(item).expanduser()
-        if not p.exists():
-            raise ErroEntrada(f"Arquivo ou pasta não encontrado: {p}")
+            p = Path(item).expanduser()
+            if not p.exists():
+                raise ErroEntrada(f"Arquivo ou pasta não encontrado: {p}")
+            if p.suffix.lower() in PROPRIETARIOS:
+                raise ErroEntrada(f"{p.name}: {PROPRIETARIOS[p.suffix.lower()]}.")
+        except ErroEntrada as e:
+            problemas.append(str(e))
+            continue
         mover = mover_caixa and (p.resolve() == caixa_entrada.resolve() or caixa_entrada.resolve() in p.resolve().parents)
+        if p.is_dir():
+            for aviso in avisos_da_pasta(p, ignorar_pasta):
+                print(f"  {aviso}")
         arquivos = listar_pasta(p) if p.is_dir() else [p]
         for a in arquivos:
             chave = f"arquivo:{a.resolve()}"
@@ -128,4 +194,12 @@ def resolver(entradas: list[str], caixa_entrada: Path, downloads: Path, ja_proce
                 print(f"  ↷ já degravado anteriormente: {a.name} (use --refazer para repetir)")
                 continue
             midias.append(Midia(a, "Arquivo local", chave, mover=mover))
+    if problemas:
+        if erros is not None:
+            erros.extend(problemas)
+        elif not midias:
+            raise ErroEntrada("\n".join(problemas))
+        else:
+            for p in problemas:
+                print(f"  ✗ {p}")
     return midias

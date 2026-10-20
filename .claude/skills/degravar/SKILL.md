@@ -1,19 +1,27 @@
 ---
 name: degravar
-description: Degrava (transcreve integralmente) vídeos e áudios — audiências, reuniões, depoimentos, aulas, áudios de WhatsApp — a partir de link do Google Drive, arquivo ou pasta local, entregando documento .md estruturado e player com transcrição sincronizada. Use SEMPRE que o usuário pedir para degravar, transcrever, "passar para texto", fazer ata ou resumo de vídeo/áudio, colar um link do Drive com vídeo, mencionar a pasta entrada/, pedir para estruturar uma degravação existente, corrigir trechos transcritos ou assistir/reproduzir um vídeo já degravado.
+description: Degrava (transcreve integralmente) vídeos e áudios — audiências, reuniões, depoimentos, aulas, áudios de WhatsApp — a partir de link do Google Drive, arquivo ou pasta local (inclusive pastas sincronizadas com a nuvem), entregando documento .md e Word estruturados e um player com legendas e transcrição sincronizada. Use SEMPRE que o usuário pedir para degravar, transcrever, "passar para texto", fazer ata ou resumo de vídeo/áudio, colar um link do Drive com vídeo, mencionar a pasta dos vídeos, pedir para estruturar uma degravação, aplicar a revisão feita no player, corrigir trechos transcritos ou assistir a um vídeo já degravado.
 ---
 
 # Degravação de vídeos e áudios
 
 A transcrição roda **localmente** (Whisper via `degravar.py`). O seu papel, Claude, é operar a ferramenta e depois **estruturar** o resultado com rigor — sem inventar nada e sem alterar a transcrição integral.
 
-## 1. Preparar o ambiente (só na primeira vez)
+<!-- COMANDO:INICIO -->
+**Comando base:** `python degravar.py`, na pasta deste projeto. Sem Python 3.11–3.14 no computador, use `uv run --no-project --python 3.12 degravar.py` (o diagnóstico diz qual).
+<!-- COMANDO:FIM -->
 
-- Se não existir a pasta `.venv/` na raiz do repositório, rode `python degravar.py instalar` (no Windows, se `python` não existir, use `py`). Demora alguns minutos. A ferramenta exige Python 3.11 a 3.14; se o comando recusar a versão, oriente a instalar o 3.12 pelo python.org.
-- Se não existir `config/preferencias.json`, ou se o usuário pedir para "configurar" ou "trocar a pasta", rode `python degravar.py configurar`: abre no computador do usuário a janela do sistema para escolher a pasta dos vídeos. Avise que a janela vai abrir (às vezes fica atrás de outras). Se ela não abrir, pergunte o caminho e use `configurar --entrada "CAMINHO"`. Sugira uma pasta do Google Drive para computador, se o usuário usar o Drive.
-- As degravações ficam em `<pasta dos vídeos>/Degravações/`, e os originais nunca são movidos. `configurar --mostrar` exibe as pastas atuais; `--modelo turbo` e `--falantes sim` mudam os padrões.
-- Não é preciso ativar a venv: `degravar.py` se reexecuta sozinho com o Python da `.venv`.
-- Para usuários sem prática com terminal, lembre que existe o atalho de dois cliques `Degravar.bat` (Windows) / `Degravar.command` (Mac), que faz instalação, configuração e degravação.
+## 1. Primeiro uso e problemas
+
+Se for o primeiro uso neste computador, se o usuário pedir para instalar ou configurar, ou se um comando falhar por falta de ambiente, siga a skill **`comecar`** (diagnóstico → instalar → pastas → teste). `python degravar.py diagnostico` mostra a qualquer momento o que está pronto e o próximo passo.
+
+- Pastas: `configurar --mostrar` exibe as atuais; `configurar --entrada` ou `--saida` (sem caminho, abre a janela; rode em segundo plano) troca uma delas. Os originais nunca são movidos. Trocar a pasta das degravações não refaz o que já foi degravado na anterior.
+- Se a saída disser que a pasta dos vídeos "não está acessível", o Google Drive/OneDrive não está aberto ou o HD externo está desconectado: diga isso ao usuário antes de qualquer outra coisa.
+- Não é preciso ativar ambiente nenhum: `degravar.py` se reexecuta sozinho no ambiente certo.
+- Os comandos que recebem o nome de uma degravação aceitam o nome completo ou um trecho único dele e imprimem `Degravação: <slug>` — confira que é a certa. Com mais de uma correspondência, a ferramenta lista as opções em vez de escolher.
+<!-- REPO:INICIO -->
+- Para quem não usa o Claude, existe o atalho de dois cliques `Degravar.bat` (Windows) / `Degravar.command` (Mac).
+<!-- REPO:FIM -->
 
 ## 2. Identificar a entrada
 
@@ -21,26 +29,33 @@ A transcrição roda **localmente** (Whisper via `degravar.py`). O seu papel, Cl
 |---|---|
 | Link do Google Drive (arquivo ou pasta) | `python degravar.py "<link>"` |
 | Caminho de arquivo ou de pasta | `python degravar.py "<caminho>"` |
-| Nada / "os vídeos da pasta" | `python degravar.py --abrir` (degrava o que houver de novo na pasta configurada) |
+| "Os vídeos da pasta", "os novos" | `python degravar.py --abrir` (degrava o que houver de novo na pasta configurada) |
+| Nada / "quero escolher o vídeo" / arquivo fora da pasta | `python degravar.py --escolher --abrir` (abre a janela do sistema para escolher um ou mais arquivos) |
 | "Fique vigiando a pasta" | `python degravar.py transcrever --monitorar` |
 
-Sempre use aspas no caminho/link. Antes de rodar, **pergunte uma única vez**, em uma só mensagem e sem bloquear se o usuário não souber:
+Formatos: praticamente qualquer vídeo ou áudio (MP4, MOV/HEVC do iPhone, WebM, MKV, AVI, WMV, MTS, VOB, 3GP, Opus/OGG do WhatsApp, AMR, WMA…). A ferramenta examina o conteúdo e, se o navegador não tocar o arquivo, gera uma cópia `video.mp4` ou `audio.m4a` na pasta da degravação, só para o player; o original nunca é alterado. Se a saída disser que um arquivo "não tem trilha de áudio", explique que não há fala para degravar; a ferramenta o anota e não tenta de novo (`--refazer` insiste). Para `.arf`/`.wrf` (Webex) e `.zoom`, repasse a instrução de exportar para MP4 no próprio aplicativo. A varredura de uma pasta não entra em subpastas e ignora arquivos que não parecem mídia — a saída avisa o que ficou de fora.
 
-- se há nomes próprios relevantes — partes, testemunhas, empresas, cidades → `--vocabulario "Nome 1, Nome 2"` (melhora muito a grafia);
-- em audiências, reuniões e depoimentos: quantas pessoas falam → `--num-falantes N` (separa quem fala; se não souber o número, use `--falantes`).
+Pastas na nuvem (Google Drive para computador, OneDrive, Dropbox) funcionam como pastas locais. É o melhor caminho para arquivos sigilosos: links públicos do Drive (`"Qualquer pessoa com o link"`) só para material sem dado de cliente. Se um link falhar, explique as duas saídas que a própria mensagem de erro traz.
 
-Modelo: o padrão é `large-v3` (mais preciso). Para gravações longas em computador sem placa de vídeo NVIDIA, avise que o processamento pode levar tempo da ordem da duração da gravação (depende da máquina) e ofereça `--modelo turbo` (bem mais rápido, precisão ligeiramente menor). Não prometa tempos exatos.
+Se o usuário arrastar um arquivo para o chat, use o caminho que aparecer. Sempre use aspas no caminho/link. Antes de rodar, **pergunte uma única vez**, com a ferramenta `AskUserQuestion` quando ela existir na sessão (botões clicáveis; o usuário pode digitar em "Outro"), e sem bloquear se o usuário não souber:
 
-Se o link do Drive falhar, explique as duas saídas que a própria mensagem de erro traz: compartilhar como "Qualquer pessoa com o link" ou usar a pasta sincronizada do Google Drive para computador.
+- em audiências, reuniões e depoimentos: quantas pessoas falam (opções: 2, 3, 4 ou mais, Não sei) → `--num-falantes N` (separa quem fala; com "Não sei", use `--falantes`; em aula ou áudio de uma pessoa só, não separe — `--sem-falantes` vence a preferência configurada);
+- se há nomes próprios relevantes — partes, testemunhas, empresas, cidades (opção "Nenhum"; os nomes vêm digitados em "Outro") → `--vocabulario "Nome 1, Nome 2"` (melhora muito a grafia).
+
+Modelo: automático — `large-v3` (máxima precisão) quando há placa NVIDIA que dá conta dele (CUDA pronto, float16 e 6 GB ou mais); `turbo` (bem mais rápido, precisão um pouco menor) nos demais casos, inclusive em placas menores e no processador. Sem placa, gravações longas podem levar tempo da ordem da duração da gravação; não prometa tempos exatos. O usuário pode fixar outro com `configurar --modelo large-v3` ou `--modelo` num comando. Se a saída avisar "placa NVIDIA encontrada, mas faltam as bibliotecas CUDA", rode `python degravar.py instalar` de novo (em segundo plano); se o diagnóstico falar em driver antigo, a solução é atualizar o driver da NVIDIA, não reinstalar.
 
 ## 3. Rodar a transcrição
 
-Rode o comando **em segundo plano** (transcrições longas passam de 10 minutos) e acompanhe a saída. Ao final, a ferramenta informa a pasta da degravação (`<pasta dos vídeos>/Degravações/<slug>/`, ou `saida/<slug>/` sem configuração) com:
+Rode o comando **em segundo plano** (transcrições longas passam de 10 minutos; com `--escolher`, a janela também espera o usuário). Fora do terminal, o progresso sai em uma linha a cada 10% (`▶ 40% · decorrido 6 min · restante ~9 min`): não leia a saída repetidamente, espere o aviso de conclusão e, se o usuário perguntar, leia só as últimas linhas. Ao final, a ferramenta informa a pasta da degravação com:
 
 - `<slug>.md` — documento estruturado (ficha técnica, índice, trechos para conferência, transcrição integral com minutagem clicável)
-- `player.html` — vídeo + transcrição sincronizada
-- `transcricao.json` — fonte de verdade (segmentos, tempos, confiança por palavra)
+- `<slug>.docx` — o mesmo documento em Word (A4, margens ABNT, páginas numeradas; falantes com as marcas `(?)` e `✎`), pronto para anexar
+- `player.html` — vídeo + legendas + transcrição sincronizada (ver passo 7)
+- `transcricao.json` — fonte de verdade (frases, tempos, confiança por palavra, forma de onda, revisões)
 - `<slug>.txt`, `.srt`, `.vtt` — texto corrido e legendas
+- `video.mp4` ou `audio.m4a` — só quando o original não toca no navegador: a cópia que o player usa
+
+Com `--refazer`, a versão anterior fica guardada em `transcricao-antes-refazer-<data>.json` e a ferramenta diz o que ela tinha (nomes, correções, marcações) e que a nova transcrição não traz.
 
 ## 4. Estruturar o documento
 
@@ -73,14 +88,22 @@ Regras inegociáveis:
 3. **Inferência declarada.** Papéis e nomes dos falantes são inferidos (pela voz e pelo contexto): diga isso e mostre a base. Se não der para inferir, use "Falante não identificado".
 4. **Possíveis erros de transcrição vão para "Notas de revisão"**, nunca corrigidos silenciosamente. Considere especialmente os trechos marcados com ⚠️.
 5. O link de minutagem segue o formato `[[HH:MM:SS]](player.html#t=SEGUNDOS)`, com segundos inteiros.
+6. Se o documento tiver a seção **"Marcações"** (feitas pelo usuário no player), elas indicam o que ele considera relevante: leve-as em conta nos pontos de atenção, sem mudar a categoria que o usuário deu.
 
-## 5. Correções na transcrição (só quando o usuário pedir)
+Ao terminar, rode `python degravar.py regerar <slug>`: o player passa a mostrar a aba "Resumo", a linha do tempo ganha os tópicos (com o sumário clicável) e os pontos de atenção, e o Word é refeito com a estrutura. A saída diz se a seção estruturada foi preservada; se avisar que os marcadores sumiram, reponha-os e estruture de novo.
 
-A fonte de verdade é `transcricao.json`. Para corrigir um trecho que o usuário conferiu na mídia:
+## 5. Revisão e correções (só quando o usuário pedir)
 
-1. Edite o campo `txt` do segmento correspondente em `saida/<slug>/transcricao.json` (localize pelo `ini`).
-2. Rode `python degravar.py regerar <slug>` — o `.md`, as legendas e o player são refeitos e a seção estruturada é preservada.
-3. Registre a correção em "Notas de revisão" (o que mudou e em qual minutagem).
+A fonte de verdade é `transcricao.json`, mas nunca o edite à mão: use os comandos. Há dois caminhos:
+
+**a) Revisão feita pelo usuário no player** (o mais comum). No player, o botão **Revisar** deixa corrigir o texto das frases, trocar o falante de um parágrafo e dar nome aos falantes; as **Marcações** guardam os trechos importantes com categoria e nota. "Exportar revisão" salva `revisao-<slug>.json` em Downloads. Quando o usuário pedir para aplicar a revisão:
+
+1. Rode `python degravar.py revisao <slug>` (acha o arquivo mais recente em Downloads; ou passe o caminho como segundo argumento).
+2. A ferramenta aplica as correções só onde a frase ainda é a original (avisa os conflitos), guarda o texto original do Whisper, troca falantes, aplica nomes e marcações, lista o que ignorou e regera `.md`, Word, legendas e player, preservando a seção estruturada. Antes, guarda uma cópia `transcricao-antes-revisao-<data>.json`.
+3. Se ela recusar o arquivo por ser "de outra versão desta transcrição" (a degravação foi refeita depois da exportação), explique que falantes e marcações cairiam em frases erradas: o usuário deve refazer a revisão no player novo e exportar de novo; `--forcar` só se ele insistir.
+4. Relate o resumo que a ferramenta imprimiu e acrescente em "Notas de revisão" uma linha com o que foi corrigido pelo usuário (minutagens), sem reescrever o resto.
+
+**b) Correção pontual pedida no chat.** Para um trecho que o usuário conferiu na mídia: `python degravar.py corrigir <slug> <frase> "texto corrigido"`, em que `<frase>` é o índice mostrado por `falantes --listar` ou uma minutagem (`00:12:31` ou segundos). O comando guarda o texto original do Whisper, marca a frase como corrigida (o player e o Word mostram isso) e regera tudo. Registre a correção em "Notas de revisão".
 
 Nunca edite a transcrição integral direto no `.md`: seria sobrescrita no próximo `regerar` e ficaria divergente do player.
 
@@ -88,7 +111,7 @@ Nunca edite a transcrição integral direto no `.md`: seria sobrescrita no próx
 
 A separação automática (`--falantes` / `--num-falantes N`) roda localmente, sem conta nem chave, e rotula cada frase como F1, F2… Ela é **aproximada**. No teste de referência (audiência por videoconferência, 9 min, áudio comprimido) acertou cerca de 78% das frases: 86% das não marcadas e só metade das marcadas com **(?)** (frases curtas, trocas rápidas). Em sequências rápidas de pergunta e resposta, a acústica pode colar vários turnos num só falante, e vozes de quem fala pouco (ex.: juiz) podem se fundir com outra.
 
-Para degravação já existente sem falantes: `python degravar.py falantes <slug> --separar [--num-falantes N]`.
+Para degravação já existente sem falantes: `python degravar.py falantes <slug> --separar [--num-falantes N]`. Atenção: `--separar` (ou `--num-falantes` sozinho) refaz a separação do zero e descarta nomes e atribuições corrigidas — a ferramenta guarda uma cópia e avisa. Numa degravação já revisada, prefira `--atribuir`.
 
 **Depois de separar, faça sempre a revisão** (antes de estruturar):
 
@@ -99,27 +122,32 @@ Para degravação já existente sem falantes: `python degravar.py falantes <slug
 5. Nomeie: `--nomear F1="Juiz(a)" --nomear F2="Preposto — Fulano"`. Use nomes só quando ditos na gravação ou informados pelo usuário; senão, o papel.
 6. Na estruturação (passo 4), "Participantes" usa esses rótulos, e "Notas de revisão" informa quantas atribuições foram revistas pelo sentido e quais trechos seguem incertos.
 
-A separação acústica original fica guardada em `falante_acustico` no `transcricao.json`; as frases revistas aparecem com ✎ no `.md` e no player, e o `.txt` e as legendas já saem com o nome de quem fala (formato de ata).
+A separação acústica original fica guardada em `falante_acustico` no `transcricao.json`; as frases revistas aparecem com ✎ no `.md`, no Word e no player, e o `.txt`, o Word e as legendas já saem com o nome de quem fala (formato de ata), com `(?)` nas atribuições a conferir.
 
 ## 7. Reproduzir
 
-Ofereça abrir o player: `python degravar.py assistir <slug>` (ou `--em <segundos>` para abrir num ponto específico). No player: clique em qualquer frase para ir ao trecho; espaço pausa; ← → voltam/avançam 5 s; há busca e controle de velocidade. Se o vídeo foi movido, o próprio player permite selecionar o arquivo.
+Ofereça abrir o player no navegador: `python degravar.py assistir <slug>` (ou `--em <segundos>` para abrir num ponto específico). Recursos que vale mencionar ao usuário, conforme a necessidade:
 
-`python degravar.py listar` mostra todas as degravações e se já foram estruturadas.
+- **legendas sobre o vídeo**, com o nome de quem fala, também em tela cheia (C); **janela flutuante** (P) que leva vídeo e legenda para assistir enquanto escreve a peça;
+- **forma de onda** colorida por falante na linha do tempo, com tópicos, pontos de atenção, marcações e trechos a conferir; passar o mouse mostra o que foi dito ali;
+- transcrição com **destaque palavra a palavra**; dois cliques numa palavra levam ao instante exato; **sumário** de tópicos clicável;
+- **selecionar um trecho** permite copiá-lo como citação — `“texto” (Falante, 00:12:31–00:12:48)` — ou **marcá-lo** (Relevante, Favorável, Desfavorável, Contradição, Conferir), com nota; a aba **Marcações** reúne tudo e copia de uma vez;
+- filtros por falante, "A conferir" e "Marcados"; busca sem acento com anterior/próxima; "Próximo a conferir" (N), "Repetir frase" (R), "Pular silêncios longos" e "Voltar 2 s ao retomar" nas preferências;
+- **Revisar** (passo 5a), Exportar (Word, PDF pela impressão, texto, legendas), tema claro/escuro, tamanho do texto, layouts e atalhos (tecla ?). O player lembra onde o usuário parou e guarda no navegador o que ainda não foi exportado.
 
-O painel lateral do Claude Code não toca o vídeo do player local (mostra só a transcrição). Para assistir com o vídeo **dentro do Claude**, use o passo 8.
+Se o vídeo foi movido, o próprio player permite selecionar o arquivo. `python degravar.py listar` mostra todas as degravações e se já foram estruturadas.
 
 ## 8. Ver dentro do Claude: publicar como artefato (opcional)
 
 Use quando o usuário quiser assistir dentro do Claude ou compartilhar a degravação por link, e a ferramenta de artefatos estiver disponível na sessão.
 
-1. **Privacidade antes de tudo.** Publicar envia a mídia e a transcrição para o claude.ai. O artefato é privado por padrão (só o dono abre até compartilhar), mas sai do computador. Antes de publicar, diga isso ao usuário. Se a gravação envolver cliente, audiência, processo ou dado pessoal, só publique com confirmação expressa e ofereça a alternativa `--sem-video` (publica só a transcrição) ou manter tudo local.
-2. Estruture a degravação antes (passo 4): a aba "Resumo e estrutura" da página vem dessa seção do `.md`.
-3. Rode `python degravar.py artefato <slug> --titulo "<título legível>"`. Ele grava `<pasta da degravação>/artefato/index.html` e a mídia recomprimida em `artefato/midia/` (até 15 MB: vídeo; gravações longas saem só com o áudio; acima disso, só a transcrição) e imprime os dois caminhos.
-4. Publique com a ferramenta de artefatos: `file_path` = o `index.html` impresso; `files` = `{"midia/<nome do arquivo>": "<caminho da mídia impresso>"}`; `icon` = `"video"`; `description` = uma frase sobre a gravação. Para atualizar uma publicação feita antes, passe o `url` dela.
+1. **Privacidade antes de tudo.** Publicar envia ao claude.ai a transcrição, a estrutura, as marcações e notas feitas no player (`--sem-marcacoes` as deixa de fora) e, salvo `--sem-video`, a gravação (vídeo recomprimido, ou só o áudio quando o vídeo não cabe). `--sem-video` publica só o texto: nenhuma mídia, nem o áudio, sai do computador. O artefato é privado por padrão (só o dono abre até compartilhar), mas sai do computador. Antes de publicar, diga isso ao usuário. Se a gravação envolver cliente, audiência, processo ou dado pessoal, só publique com confirmação expressa e ofereça a alternativa `--sem-video` ou manter tudo local.
+2. Estruture a degravação antes (passo 4): a aba "Resumo" da página vem dessa seção do `.md`.
+3. Rode `python degravar.py artefato <slug> --titulo "<título legível>"` (com `--sem-video` e/ou `--sem-marcacoes` conforme o combinado). A página é a mesma do player local, sem impressão, sem revisão e sem arquivos para baixar, que o artefato não permite. Ele grava `<pasta da degravação>/artefato/index.html` e, se houver mídia, `artefato/midia/midia.*` (até 15 MB: vídeo; se não couber, só o áudio; acima disso, só a transcrição — a página diz o motivo) e imprime os caminhos.
+4. Publique com a ferramenta de artefatos: `file_path` = o `index.html` impresso; `files` = `{"midia/<nome do arquivo>": "<caminho da mídia impresso>"}` (omita quando não houver mídia); `icon` = `"video"`; `description` = uma frase sobre a gravação. Para atualizar uma publicação feita antes, passe o `url` dela e, se a nova versão não leva a mídia (ou leva outra), liste os arquivos do artefato e passe `"midia/<arquivo antigo>": null` para remover a anterior — senão ela continua hospedada.
 5. Entregue o link dizendo que é privado e que, para outra pessoa abrir, é preciso compartilhar pelo menu da página.
 
 ## Lembretes ao usuário
 
 - A transcrição automática é ferramenta de apoio: para uso em peça ou juntada aos autos, os trechos citados devem ser conferidos na mídia original.
-- Vídeos e degravações ficam no computador do usuário (pasta configurada, ou `entrada/` e `saida/`, fora do Git) — podem conter dados pessoais (LGPD). Só saem dali se o usuário pedir um artefato (passo 8).
+- Vídeo e áudio ficam no computador do usuário (ou na pasta da nuvem que ele escolheu) e só saem dali se ele pedir um artefato com mídia (passo 8). O **texto** da degravação é lido por você, Claude, quando ele pede estruturação, revisão de falantes ou correções — ou seja, vai para a conta do Claude dele, nas condições dessa conta; se perguntarem, diga isso com clareza. As degravações podem conter dados pessoais (LGPD).

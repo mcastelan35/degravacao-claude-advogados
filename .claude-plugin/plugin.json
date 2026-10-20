@@ -1,0 +1,20 @@
+{
+  "name": "degravacao",
+  "version": "1.1.0",
+  "description": "Degravação de audiências, depoimentos e reuniões para advogados: transcrição integral local (Whisper), separação de falantes, player com legendas, marcações e revisão, e documento em Word. Os vídeos não saem do computador.",
+  "author": {
+    "name": "Marcos Vilas Boas",
+    "url": "https://www.instagram.com/advvilasboas/"
+  },
+  "homepage": "https://github.com/mcastelan35/degravacao-claude-advogados",
+  "repository": "https://github.com/mcastelan35/degravacao-claude-advogados",
+  "keywords": [
+    "degravação",
+    "transcrição",
+    "audiência",
+    "whisper",
+    "legendas",
+    "advocacia",
+    "jurídico"
+  ]
+}

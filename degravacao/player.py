@@ -1,261 +1,169 @@
-"""Gera o player.html: vídeo + transcrição sincronizada, busca e minutagem clicável."""
+"""Página do player: mídia + transcrição sincronizada, legendas, forma de onda, marcações e revisão.
+
+O modelo fica em degravacao/pagina/ (player.html, player.css, player.js) e vira uma página única,
+com os dados embutidos. Serve ao player.html local (abre com dois cliques, sem internet) e à página
+publicada como artefato no claude.ai (ver artefato.py); muda só o que cada ambiente permite: no
+local há impressão, arquivos para baixar e revisão do texto; no artefato, as fontes da web.
+"""
 
 from __future__ import annotations
 
+import html
 import json
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
 
-from .documento import paragrafos
+import re
+
+from .documento import (CATEGORIAS, falante_revisto, marcacoes_validas, marcos, md_para_html, palavras_validas,
+                        paragrafos, partes_legenda, resumo_revisao, secao_estruturada, legendas)
 from .falantes import nome as nome_falante
-from .util import minutagem
+from .fontes import EXT_AUDIO
+from .transcricao import LIMIAR_PALAVRA
+from .util import duracao_por_extenso, minutagem
 
-MODELO = r"""<!doctype html>
+MODELO = Path(__file__).parent / "pagina"
+
+
+def _rank(rotulo: str | None) -> int:
+    return int(rotulo[1:]) if rotulo else 0
+
+
+def montar_dados(dados: dict, md_doc: str | None, titulo: str, src: str, tipo: str, modo: str,
+                 ficha_extra: list | None = None, motivo: str = "") -> dict:
+    """Dados compactos que a página embute.
+
+    `motivo` (artefato) diz por que a mídia não é a gravação completa: "sem_video" (escolha de quem
+    publicou), "ausente" (original não encontrado) ou "tamanho" (não coube no limite do artefato).
+    """
+    segs = dados["segmentos"]
+    artefato = modo == "artefato"   # a página publicada não leva o que é só de trabalho interno
+    estrutura = secao_estruturada(md_doc or "")
+    gerado = datetime.fromisoformat(dados["gerado_em"])
+    conferir = sum(1 for s in segs if s["baixa_confianca"])
+    falantes = [{"rot": r, "nome": nome_falante(dados, r), "tempo": minutagem(i["tempo"]), "seg": i["tempo"], "r": _rank(r)}
+                for r, i in (dados.get("falantes") or {}).items()]
+
+    frases = []
+    for s in segs:
+        item: dict = {"ini": s["ini"], "fim": s["fim"], "t": s["txt"]}
+        if s["baixa_confianca"]:
+            item["b"] = 1
+        if s.get("corrigido"):
+            item["c"] = 1
+            if not artefato:   # o texto original do Whisper fica só no player local
+                item["o"] = s.get("txt_whisper", "")
+        ws = palavras_validas(s)
+        if ws:
+            item["w"] = [[w["ini"], w["fim"], w["txt"]] for w in ws]
+            duvidas = [n for n, w in enumerate(ws) if w.get("p", 1) < LIMIAR_PALAVRA]
+            if s["baixa_confianca"] and duvidas:
+                item["d"] = duvidas   # sublinha só as palavras duvidosas, não a frase toda
+        frases.append(item)
+
+    pars = [{"ini": p["ini"], "segs": p["segs"], "rot": p.get("falante"),
+             "inc": all(segs[i].get("falante_incerto") for i in p["segs"]),
+             "rev": any(falante_revisto(segs[i]) for i in p["segs"]),
+             "b": any(segs[i]["baixa_confianca"] for i in p["segs"])}
+            for p in paragrafos(segs)]
+
+    # No artefato, o link do Drive daria a quem recebe a página acesso à gravação inteira.
+    origem = dados["origem"] + (f" — {dados['url']}" if dados.get("url") and not artefato else "")
+    ficha = [
+        ["Arquivo original", dados["arquivo"] + (f" ({dados['formato']})" if dados.get("formato") else "")],
+        ["Origem", origem],
+        ["Duração", f"{minutagem(dados['duracao'])} ({duracao_por_extenso(dados['duracao'])})"],
+        ["Transcrição", f"Whisper {dados['modelo']}, local ({dados['dispositivo']}) · idioma {dados['idioma']} "
+                        f"({dados['prob_idioma'] * 100:.0f}%)"],
+        ["Volume", f"{len(segs)} frases · {len(pars)} parágrafos · {sum(len(s['txt'].split()) for s in segs)} palavras"],
+        ["Trechos a conferir", str(conferir)],
+        *([["Falantes", f"{len(falantes)} separados pela voz · "
+                        f"{sum(1 for s in segs if s.get('falante_incerto'))} frases com falante a conferir"]]
+          if falantes else []),
+        *([["Revisão", resumo_revisao(dados)]] if dados.get("revisoes") else []),
+        ["Degravado em", gerado.strftime("%d/%m/%Y %H:%M")],
+        *(ficha_extra or []),
+    ]
+    chips = [[minutagem(dados["duracao"]), False]]
+    if falantes:
+        chips.append([f"{len(falantes)} falante{'s' if len(falantes) != 1 else ''}", False])
+    if conferir:
+        chips.append([f"{conferir} a conferir", True])
+    chips += [[f"Whisper {dados['modelo']}", False], [gerado.strftime("%d/%m/%Y"), False]]
+
+    m = marcos(estrutura)
+    slug = dados["slug"]
+    cues = []
+    for parte in partes_legenda(dados):   # (ini, fim, rótulo, texto, abre, índice da frase); o índice pode faltar
+        a, b, rot, txt, _abre, *resto = parte
+        cues.append([a, b, rot, txt, resto[0] if resto else None])
+    arquivos = []
+    if modo == "local":
+        arquivos = [["Word (.docx)", f"{slug}.docx", "documento", "baixa uma cópia"],
+                    ["Documento (.md)", f"{slug}.md", "documento", "Markdown"],
+                    ["Texto corrido (.txt)", f"{slug}.txt", "documento", "para colar"],
+                    ["Legendas (.srt)", f"{slug}.srt", "legenda", "VLC, editores"],
+                    ["Legendas (.vtt)", f"{slug}.vtt", "legenda", "web"]]
+    return {
+        "modo": modo,
+        "id": f"{slug}|{dados['gerado_em']}",
+        "titulo": titulo,
+        "slug": slug,
+        "geradoEm": dados["gerado_em"],
+        "duracao": dados["duracao"],
+        "chips": chips,
+        "midia": {"tipo": tipo, "src": src, "nome": unquote(src.rsplit("/", 1)[-1]) if src else "",
+                  "soAudio": dados.get("tipo_midia") == "audio",   # a gravação já era só áudio
+                  "motivo": motivo},
+        "segmentos": frases,
+        "paragrafos": pars,
+        "cues": cues,
+        "legendas": [[a, b, t] for a, b, t in legendas(dados)],
+        "picos": dados.get("picos") or [],
+        "falantes": falantes,
+        "ficha": ficha,
+        "estrutura": md_para_html(estrutura) if estrutura else "",
+        "topicos": sorted(m["topicos"], key=lambda x: x["t"]),
+        "pontos": sorted(m["pontos"], key=lambda x: x["t"]),
+        "marcacoes": marcacoes_validas(dados),   # saneadas como no .md e no Word
+        "revisaoEm": dados.get("revisao_em") or "",
+        "arquivos": arquivos,
+        "categorias": [[k, v] for k, v in CATEGORIAS.items()],
+    }
+
+
+def gerar_html(dados: dict, md_doc: str | None, titulo: str, src: str, tipo: str, modo: str,
+               ficha_extra: list | None = None, motivo: str = "") -> str:
+    d = montar_dados(dados, md_doc, titulo, src, tipo, modo, ficha_extra, motivo)
+    # "<" vira <: nenhum texto transcrito consegue fechar o <script> nem abrir comentário.
+    js_dados = json.dumps(d, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    modelo = (MODELO / "player.html").read_text(encoding="utf-8")
+    # Uma passada só: o que entra (título, dados, código) nunca é varrido de novo, então um título ou uma
+    # frase que contenha um dos marcadores do modelo sai como texto.
+    partes = {"__TITULO__": html.escape(titulo), "__FONTES__": FONTES if modo == "artefato" else "",
+              "/*__CSS__*/": (MODELO / "player.css").read_text(encoding="utf-8"),
+              "/*__JS__*/": (MODELO / "player.js").read_text(encoding="utf-8"), "__DADOS__": js_dados}
+    pagina = re.sub("|".join(re.escape(k) for k in partes), lambda m: partes[m.group(0)], modelo)
+    return CABECALHO_LOCAL + pagina if modo == "local" else pagina
+
+
+def gerar_player(pasta: Path, dados: dict, titulo: str, src: str, md_doc: str | None = None) -> Path:
+    # Pelo conteúdo (gravado na degravação); degravações antigas caem na extensão.
+    tipo = dados.get("tipo_midia") or ("audio" if Path(unquote(src)).suffix.lower() in EXT_AUDIO else "video")
+    destino = pasta / "player.html"
+    destino.write_text(gerar_html(dados, md_doc, titulo, src, tipo, "local"), encoding="utf-8")
+    return destino
+
+
+# O artefato recebe o esqueleto <html>/<head> na publicação; o arquivo local precisa do seu.
+CABECALHO_LOCAL = """<!doctype html>
 <html lang="pt-BR">
-<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__TITULO__ — Degravação</title>
-<style>
-  :root {
-    --fundo: #f6f5f2; --painel: #ffffff; --texto: #1d1d1b; --suave: #6b6a65;
-    --borda: #e3e1db; --destaque: #fff1c2; --acento: #b4532a; --alerta: #b7791f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --fundo: #161614; --painel: #1f1f1c; --texto: #ecebe6; --suave: #9c9a92;
-      --borda: #33322e; --destaque: #4a3d14; --acento: #e0895f; --alerta: #e0b04f;
-    }
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body { margin: 0; background: var(--fundo); color: var(--texto); display: flex; flex-direction: column;
-         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 14px 20px; border-bottom: 1px solid var(--borda); display: flex;
-           gap: 16px; align-items: baseline; flex-wrap: wrap; }
-  header h1 { font-size: 18px; margin: 0; }
-  header span { color: var(--suave); font-size: 14px; }
-  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-         gap: 20px; padding: 20px; }
-  .coluna { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-  video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
-  #legenda { min-height: 3.4em; padding: 10px 14px; background: var(--painel); border: 1px solid var(--borda);
-             border-radius: 10px; font-size: 18px; }
-  .controles { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  button, select, input[type=search] { font: inherit; font-size: 14px; color: var(--texto);
-      background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 10px; }
-  button { cursor: pointer; } button:hover { border-color: var(--acento); }
-  label { font-size: 14px; color: var(--suave); display: flex; gap: 6px; align-items: center; }
-  #erro { display: none; padding: 12px 14px; border: 1px solid var(--alerta); border-radius: 10px; font-size: 14px; }
-  #transcricao { overflow-y: auto; background: var(--painel); border: 1px solid var(--borda);
-                 border-radius: 10px; padding: 8px 18px; flex: 1; }
-  .par { margin: 12px 0; }
-  .ts { font: 13px ui-monospace, Consolas, monospace; color: var(--acento); cursor: pointer;
-        margin-right: 6px; border: 0; background: none; padding: 0; }
-  .seg { cursor: pointer; border-radius: 3px; }
-  .seg:hover { text-decoration: underline dotted; }
-  .seg.atual { background: var(--destaque); }
-  .seg.baixa { text-decoration: underline wavy var(--alerta); text-underline-offset: 3px; }
-  mark { background: #ffd54f; color: #000; }
-  .falante { font-size: 13px; font-weight: 600; margin-right: 6px; padding: 1px 8px; border-radius: 99px;
-             background: color-mix(in srgb, var(--cor) 18%, transparent); color: var(--cor); }
-  .falante.incerto::after { content: " ?"; }
-  .falante.revisto::after { content: " ✎"; }
-  .info { font-size: 13px; color: var(--suave); }
-
-  /* Telas estreitas (celular, painel lateral do Claude): vídeo compacto no topo e transcrição rolando abaixo. */
-  @media (max-width: 900px) {
-    header { padding: 8px 14px; gap: 8px; }
-    header h1 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-    header span { font-size: 12px; }
-    main { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 10px 14px; }
-    .coluna { gap: 8px; }
-    video { max-height: 34vh; }
-    #legenda, .info, .opcional { display: none; }
-    button, select, input[type=search] { font-size: 13px; padding: 4px 8px; }
-    #erro { padding: 8px 10px; font-size: 13px; }
-    #transcricao { padding: 4px 12px; }
-    .par { margin: 8px 0; font-size: 15px; }
-  }
-</style>
-</head>
-<body>
-<header>
-  <h1>__TITULO__</h1>
-  <span>__DURACAO__ · __PARAGRAFOS__ parágrafos · <span style="text-decoration: underline wavy var(--alerta)">sublinhado ondulado</span> = conferir na mídia</span>
-</header>
-<main>
-  <section class="coluna">
-    <video id="video" controls preload="metadata" src="__SRC__"></video>
-    <div id="erro">
-      Não foi possível abrir <code>__SRC_TEXTO__</code> (arquivo movido ou formato não suportado).
-      Selecione o arquivo: <input type="file" id="arquivo" accept="video/*,audio/*">
-    </div>
-    <div id="legenda" aria-live="polite"></div>
-    <div class="controles">
-      <button data-pular="-10" class="opcional">⟲ 10s</button>
-      <button data-pular="-5">− 5s</button>
-      <button id="play">▶ / ❚❚</button>
-      <button data-pular="5">+ 5s</button>
-      <button data-pular="10" class="opcional">10s ⟳</button>
-      <label>Velocidade
-        <select id="velocidade">
-          <option>0.5</option><option>0.75</option><option selected>1</option>
-          <option>1.25</option><option>1.5</option><option>1.75</option><option>2</option>
-        </select>
-      </label>
-      <button id="copiar" title="Copia a minutagem atual">Copiar minutagem</button>
-    </div>
-    <p class="info">Atalhos: <b>espaço</b> play/pausa · <b>← →</b> 5 s · <b>J / L</b> 10 s · clique em qualquer frase para ir ao trecho.</p>
-  </section>
-  <section class="coluna">
-    <div class="controles">
-      <input type="search" id="busca" placeholder="Buscar na transcrição…" style="flex:1">
-      <span id="contagem" class="info"></span>
-      <label><input type="checkbox" id="seguir" checked> acompanhar</label>
-    </div>
-    <div id="transcricao"></div>
-  </section>
-</main>
-<script>
-const DADOS = __DADOS__;
-const video = document.getElementById("video");
-const caixa = document.getElementById("transcricao");
-const legenda = document.getElementById("legenda");
-const seguir = document.getElementById("seguir");
-const segs = DADOS.segmentos;
-const elems = [];
-const CORES = ["#2f6fdf", "#c2410c", "#15803d", "#9333ea", "#b45309", "#0e7490", "#be123c", "#4d7c0f"];
-
-function hms(t) {
-  t = Math.max(0, Math.floor(t));
-  const h = String(Math.floor(t / 3600)).padStart(2, "0");
-  const m = String(Math.floor(t % 3600 / 60)).padStart(2, "0");
-  const s = String(t % 60).padStart(2, "0");
-  return `${h}:${m}:${s}`;
-}
-function ir(t) { video.currentTime = t; video.play().catch(() => {}); }
-
-for (const p of DADOS.paragrafos) {
-  const div = document.createElement("p");
-  div.className = "par";
-  const b = document.createElement("button");
-  b.className = "ts"; b.textContent = "[" + hms(p.ini) + "]";
-  b.onclick = () => ir(p.ini);
-  div.appendChild(b);
-  if (p.f) {
-    const f = document.createElement("span");
-    f.className = "falante" + (p.inc ? " incerto" : "") + (p.rev ? " revisto" : "");
-    f.style.setProperty("--cor", CORES[(p.r - 1) % CORES.length]);
-    f.textContent = p.f;
-    f.title = p.rev ? "Atribuição revista após a separação automática"
-      : p.inc ? "Falante a conferir (frase curta ou troca rápida)" : "Separação automática pela voz";
-    div.appendChild(f);
-  }
-  for (const i of p.segs) {
-    const s = segs[i];
-    const span = document.createElement("span");
-    span.className = "seg" + (s.b ? " baixa" : "");
-    span.textContent = s.t + " ";
-    span.dataset.t = s.t;
-    span.onclick = () => ir(s.ini);
-    elems[i] = span;
-    div.appendChild(span);
-  }
-  caixa.appendChild(div);
-}
-
-let atual = -1;
-function indicePara(t) {
-  let lo = 0, hi = segs.length - 1, r = -1;
-  while (lo <= hi) { const m = (lo + hi) >> 1; if (segs[m].ini <= t) { r = m; lo = m + 1; } else hi = m - 1; }
-  return r;
-}
-video.addEventListener("timeupdate", () => {
-  const i = indicePara(video.currentTime);
-  if (i === atual) return;
-  if (atual >= 0 && elems[atual]) elems[atual].classList.remove("atual");
-  atual = i;
-  if (i >= 0) {
-    elems[i].classList.add("atual");
-    legenda.textContent = video.currentTime <= segs[i].fim + 1 ? (segs[i].f ? segs[i].f + ": " : "") + segs[i].t : "";
-    if (seguir.checked) elems[i].scrollIntoView({ block: "center", behavior: "smooth" });
-  }
-});
-
-document.querySelectorAll("[data-pular]").forEach(b =>
-  b.onclick = () => { video.currentTime += Number(b.dataset.pular); });
-document.getElementById("play").onclick = () => video.paused ? video.play() : video.pause();
-document.getElementById("velocidade").onchange = e => { video.playbackRate = Number(e.target.value); };
-document.getElementById("copiar").onclick = () =>
-  navigator.clipboard.writeText(hms(video.currentTime)).catch(() => {});
-
-document.addEventListener("keydown", e => {
-  if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
-  const k = e.key.toLowerCase();
-  if (k === " ") { e.preventDefault(); video.paused ? video.play() : video.pause(); }
-  else if (k === "arrowleft") video.currentTime -= 5;
-  else if (k === "arrowright") video.currentTime += 5;
-  else if (k === "j") video.currentTime -= 10;
-  else if (k === "l") video.currentTime += 10;
-});
-
-function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
-function escapar(s) { return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
-document.getElementById("busca").addEventListener("input", e => {
-  const q = norm(e.target.value.trim());
-  let n = 0, primeiro = null;
-  elems.forEach(el => {
-    const txt = el.dataset.t + " ";
-    if (!q) { el.textContent = txt; return; }
-    const alvo = norm(txt);
-    let out = "", pos = 0, idx;
-    while ((idx = alvo.indexOf(q, pos)) !== -1) {
-      out += escapar(txt.slice(pos, idx)) + "<mark>" + escapar(txt.slice(idx, idx + q.length)) + "</mark>";
-      pos = idx + q.length; n++; primeiro = primeiro || el;
-    }
-    if (pos === 0) el.textContent = txt; else el.innerHTML = out + escapar(txt.slice(pos));
-  });
-  document.getElementById("contagem").textContent = q ? `${n} ocorrência(s)` : "";
-  if (primeiro) { seguir.checked = false; primeiro.scrollIntoView({ block: "center" }); }
-});
-
-video.addEventListener("error", () => { document.getElementById("erro").style.display = "block"; });
-document.getElementById("arquivo").addEventListener("change", e => {
-  const f = e.target.files[0];
-  if (f) { video.src = URL.createObjectURL(f); document.getElementById("erro").style.display = "none"; }
-});
-
-const m = location.hash.match(/t=(\d+(?:\.\d+)?)/);
-if (m) video.addEventListener("loadedmetadata", () => { video.currentTime = Number(m[1]); }, { once: true });
-</script>
-</body>
-</html>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 """
 
-
-def gerar_player(pasta: Path, dados: dict, titulo: str, src: str) -> Path:
-    segs = dados["segmentos"]
-    compacto = {
-        "segmentos": [{"ini": s["ini"], "fim": s["fim"], "t": s["txt"], "b": s["baixa_confianca"],
-                       "f": nome_falante(dados, s.get("falante"))} for s in segs],
-        "paragrafos": [{"ini": p["ini"], "segs": p["segs"],
-                        "f": nome_falante(dados, p.get("falante")),
-                        "r": int(p["falante"][1:]) if p.get("falante") else 0,
-                        "inc": all(segs[i].get("falante_incerto") for i in p["segs"]),
-                        "rev": any(segs[i].get("falante") != segs[i].get("falante_acustico") for i in p["segs"])}
-                       for p in paragrafos(segs)],
-    }
-    json_seguro = json.dumps(compacto, ensure_ascii=False).replace("</", "<\\/")
-    esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")  # noqa: E731
-    html = (
-        MODELO.replace("__TITULO__", esc(titulo))
-        .replace("__SRC_TEXTO__", esc(unquote(src.rsplit("/", 1)[-1])))
-        .replace("__SRC__", esc(src))
-        .replace("__DURACAO__", minutagem(dados["duracao"]))
-        .replace("__PARAGRAFOS__", str(len(compacto["paragrafos"])))
-        .replace("__DADOS__", json_seguro)  # por último: o texto transcrito não passa por outras trocas
-    )
-    destino = pasta / "player.html"
-    destino.write_text(html, encoding="utf-8")
-    return destino
+# Só no artefato: o player local não faz nenhuma requisição externa (usa as fontes do sistema).
+FONTES = """<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">"""

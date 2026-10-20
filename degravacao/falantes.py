@@ -60,7 +60,7 @@ def garantir_modelos(pasta: Path) -> tuple[Path, Path]:
 
 
 def diarizar(caminho: Path, pasta_modelos: Path, num_falantes: int | None = None,
-             limiar: float = LIMIAR_PADRAO) -> list[tuple[float, float, str]]:
+             limiar: float = LIMIAR_PADRAO, audio=None) -> list[tuple[float, float, str]]:
     import sherpa_onnx
     from faster_whisper.audio import decode_audio
 
@@ -78,7 +78,8 @@ def diarizar(caminho: Path, pasta_modelos: Path, num_falantes: int | None = None
         raise RuntimeError("configuração de diarização inválida")
     print(f"  ⚙ separando falantes{f' ({num_falantes} informados)' if num_falantes else ''}…")
     inicio = time.time()
-    audio = decode_audio(str(caminho), sampling_rate=16000)
+    if audio is None:   # já decodificado na transcrição, quando vem de lá
+        audio = decode_audio(str(caminho), sampling_rate=16000)
     res = sherpa_onnx.OfflineSpeakerDiarization(cfg).process(audio).sort_by_start_time()
     print(f"  ✓ falantes separados em {(time.time() - inicio) / 60:.1f} min")
     return [(float(r.start), float(r.end), str(r.speaker)) for r in res]
